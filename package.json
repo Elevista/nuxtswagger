@@ -1,0 +1,48 @@
+{
+  "name": "nuxtswagger",
+  "version": "0.0.1",
+  "description": "Nuxt-TS-Swagger plugin generator CLI",
+  "main": "index.js",
+  "bin": {
+    "nuxtswagger": "index.js"
+  },
+  "scripts": {
+    "lint": "eslint --format ./node_modules/eslint-friendly-formatter --ext .js .",
+    "lint:fix": "eslint --format ./node_modules/eslint-friendly-formatter --ext .js . --fix"
+  },
+  "keywords": [
+    "nuxt",
+    "typescript",
+    "swagger"
+  ],
+  "author": "Elevista",
+  "license": "ISC",
+  "dependencies": {
+    "chalk": "^4.1.0",
+    "cross-fetch": "^3.0.6",
+    "lodash": "^4.17.20",
+    "mkdirp": "^1.0.4",
+    "yargs": "^16.1.0"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "npm run lint"
+    }
+  },
+  "eslintIgnore": [
+    "node_modules"
+  ],
+  "devDependencies": {
+    "eslint-friendly-formatter": "^4.0.1",
+    "husky": "^4.3.0",
+    "standard": "^16.0.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Elevista/nuxtswagger.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Elevista/nuxtswagger/issues"
+  },
+  "homepage": "https://github.com/Elevista/nuxtswagger#readme"
+}
