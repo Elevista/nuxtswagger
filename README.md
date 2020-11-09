@@ -8,6 +8,10 @@ Nuxt-TS-Swagger plugin generator CLI
 npm i -D nuxtswagger
 ```
 
+## Requirements
+- [`Nuxt`](https://nuxtjs.org) base project
+- [`@nuxtjs/axios`](https://axios.nuxtjs.org) module
+
 ## Basic Usage
 in Nuxt project directory
 ```sh
@@ -34,12 +38,13 @@ export default {
 
 ## Options
 ```sh
-nuxtswagger json-file --option1=value1 --option2=value2
+nuxtswagger argument1 --option1=value1 --option2=value2
 ```
 	
 | option | description | default | example |
 | --- | --- | --- | --- |
-| json-file | Swagger schema JSON path | (required) | `http://..` or `./foo/swagger.json`  |
+| first argument | Swagger schema JSON path | (required) | `http://..` or `./foo/swagger.json`  |
+| `src` | same as first argument | first argument | same as above  |
 | `plugins-dir` | Nuxt plugins directory | `plugins` |  |
 | `plugin-name` | Name for generated plugin | `api` |  |
 | `inject` | Nuxt plugin inject key | `{plugin-name}` |  |
@@ -50,13 +55,15 @@ nuxtswagger json-file --option1=value1 --option2=value2
 ```json
 {
   "scripts": {
-    "swagger": "nuxtswagger https://api.server.foo/swagger.json"
+    "swagger": "nuxtswagger"
   },
   "nuxtswagger": {
+    "src": "https://api.server.foo/swagger.json",
     "pluginName": "foo"
   }
 }
 ```
+and `npm run swagger` or `npx nuxtswagger`
 
 
 ## License

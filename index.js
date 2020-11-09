@@ -13,12 +13,13 @@ const run = async function () {
   try {
     const { nuxtswagger } = await fetchJson('./package.json')
     for (const [key, value] of Object.entries(nuxtswagger)) {
-      if (!/pluginsDir|pluginName|inject|typePath|refPrefix/.test(key)) continue
+      if (!/src|pluginsDir|pluginName|inject|typePath|refPrefix/.test(key)) continue
       if (!(key in argv)) argv[key] = value
     }
   } catch (e) {}
   const {
-    _: [jsonPath],
+    _: [arg1],
+    src = arg1,
     pluginsDir = 'plugins',
     pluginName = 'api',
     inject = pluginName,
@@ -30,7 +31,7 @@ const run = async function () {
   mkdirp.sync(pluginsDir)
   mkdirp.sync(dirname(typePath))
 
-  const { definitions, paths } = await fetchJson(jsonPath)
+  const { definitions, paths } = await fetchJson(src)
 
   const sameDir = join(pluginsDir, pluginName) === dirname(typePath)
   const pluginPath = sameDir ? join(pluginsDir, pluginName, 'index.ts') : join(pluginsDir, `${pluginName}.ts`)
