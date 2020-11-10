@@ -1,8 +1,9 @@
-const c = require('chalk')
-const { fetch } = require('cross-fetch')
+import * as c from 'chalk'
+import { fetch } from 'cross-fetch'
+import { Spec } from './spec/OpenAPI2'
 const fs = require('fs')
 const p = require('path')
-module.exports = async function (path) {
+export default async function (path:string):Promise<Spec> {
   const isRemote = /^[a-z]+?:\/\//.test(path)
   if (!isRemote) return JSON.parse(fs.readFileSync(p.resolve(path)).toString())
   console.log(c.cyan('fetching'), 'JSON from', c.underline(path))

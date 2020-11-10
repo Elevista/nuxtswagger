@@ -1,22 +1,34 @@
 #!/usr/bin/env node
+import Template from './template'
+import fetchJson from './fetchJson'
 const fs = require('fs')
 const mkdirp = require('mkdirp')
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
-const Template = require('./template')
-const fetchJson = require('./fetchJson')
 const c = require('chalk')
+enum options {
+  src = 'src',
+  pluginsDir = 'pluginsDir',
+  pluginName = 'pluginName',
+  inject = 'inject',
+  typePath = 'typePath',
+  basePath = 'basePath',
+  refPrefix = 'refPrefix',
+}
 
+type Options = { [name in options]: string }
+interface Argv extends Options{ _:[string] }
 const run = async function () {
   const { join, basename, dirname, relative } = require('path')
-  const argv = yargs(hideBin(process.argv)).argv
+  const { argv }: { argv: Argv } = yargs(hideBin(process.argv))
   try {
-    const { nuxtswagger } = await fetchJson('./package.json')
-    for (const [key, value] of Object.entries(nuxtswagger)) {
-      if (!/src|pluginsDir|pluginName|inject|typePath|refPrefix/.test(key)) continue
-      if (!(key in argv)) argv[key] = value
-    }
-  } catch (e) {}
+    const jsonPath = require('path').join(process.cwd(), 'package.json')
+    const { nuxtswagger }: { nuxtswagger: Options } = require(jsonPath)
+    Object.entries(nuxtswagger).forEach(([key, value]) => {
+      if (!(key in options)) return
+      if (!(key in argv)) argv[key as options] = value
+    })
+  } catch (e) { }
   const {
     _: [arg1],
     src = arg1,
@@ -26,7 +38,7 @@ const run = async function () {
     typePath = join(pluginsDir, pluginName, 'types.ts'),
     basePath = '/v1',
     refPrefix: $refPrefix
-  } = argv
+  }:Argv = argv
 
   mkdirp.sync(pluginsDir)
   mkdirp.sync(dirname(typePath))

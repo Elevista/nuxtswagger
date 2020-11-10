@@ -1,5 +1,6 @@
-node_modules
-plugins
 .idea
 .DS_Store
-
+node_modules
+plugins
+src
+tsconfig.json
