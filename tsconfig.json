@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "module": "esnext",
+    "moduleResolution": "node",
+    "target": "ES2019",
+    "allowJs": true,
+    "outDir": "dist/",
+    "declaration": true,
+    "declarationDir": "dist/types",
+    "sourceMap": true,
+    "types": ["@types/node"]
+  },
+  "include": ["src/*"],
+  "exclude": [
+    "node_modules",
+    "plugins"
+  ]
+}
