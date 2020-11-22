@@ -1,26 +1,21 @@
-import { Definitions, Method, MethodTypes, Paths, Types, Ref, TypeArray, TypeObject, ParameterTypes } from './spec/OpenAPI2'
+import { Method, MethodTypes, Types, Ref, TypeArray, TypeObject, ParameterTypes, Spec } from './Spec'
+import { TemplateBase } from '../TemplateBase'
 interface Parameter {type: string, required: boolean, name: string}
 
 const _ = require('lodash')
-const typeMatch = 'type integer = number'
-export default class Template {
-  private readonly relTypePath:string
-  private readonly $refPrefix:string
-  private readonly basePath:string
-  private readonly inject:string
-  private readonly className:string
-  constructor ({ pluginName, basePath, inject, relTypePath, $refPrefix = '#/definitions/' }:{pluginName:string, basePath:string, inject:string, relTypePath:string, $refPrefix:string}) {
-    this.relTypePath = relTypePath
-    this.$refPrefix = $refPrefix
-    this.basePath = basePath
-    this.inject = inject.replace(/^[^a-zA-Z]+/, '').replace(/^[A-Z]/, x => x.toLowerCase())
-    this.className = pluginName.replace(/^[^a-zA-Z]+/, '').replace(/^[a-z]/, x => x.toUpperCase())
+const $refPrefix = '#/definitions/'
+export default class Template extends TemplateBase {
+  private readonly spec:Spec
+
+  constructor (spec: Spec, { pluginName, basePath, inject, relTypePath }: { pluginName: string, basePath: string, inject: string, relTypePath: string }) {
+    super({ pluginName, basePath, inject, relTypePath })
+    this.spec = spec
   }
 
-  strip (ref:Ref) { return ref.$ref.replace(this.$refPrefix, '') || '' }
+  strip (ref:Ref) { return ref.$ref.replace($refPrefix, '') || '' }
 
-  importTypes (definitions:Definitions) {
-    return `import { ${Object.keys(definitions).join(', ')} } from '${this.relTypePath}'`
+  importTypes () {
+    return `import { ${Object.keys(this.spec.definitions).join(', ')} } from '${this.relTypePath}'`
   }
 
   comment (comment?:string|number|boolean) {
@@ -47,7 +42,8 @@ export default class Template {
     return typeObj.type
   }
 
-  definitions (definitions:Definitions) {
+  definitions () {
+    const { definitions } = this.spec
     const array = (name:string, definition:TypeArray) => {
       const type = this.typeDeep(definition)
       return `export type ${name} = ${type}`
@@ -61,16 +57,15 @@ export default class Template {
       }).join('\n').replace(/^(.)/mg, '  $1')
       return `export interface ${name} {\n${content}\n}`
     }
-    return [
-      '/* eslint-disable */',
-      typeMatch,
-      ...Object.entries(definitions).map(([name, definition]) => {
+    return this.definitionsTemplate({
+      definitions: Object.entries(definitions).map(([name, definition]) => {
         if ('type' in definition) {
           if (definition.type === 'array') return array(name, definition)
           if (definition.type === 'object') return object(name, definition)
         }
         return undefined
-      }).filter(x => x), ''].join('\n')
+      }).filter(x => x).join('\n')
+    })
   }
 
   params (args: Array<Parameter>) {
@@ -122,7 +117,8 @@ export default class Template {
     return `${this.params(params)}: Promise<${type}> => this.$axios.$${method}(${paramsString})/*${summary}*/`
   }
 
-  plugin (paths:Paths, definitions:Definitions) {
+  plugin () {
+    const { paths } = this.spec
     const propTree:{[paths:string]:string} = {}
     const base = this.basePath
     Object.entries(paths).forEach(([path, methods]) => {
@@ -147,35 +143,6 @@ export default class Template {
         })
       return `${property} = ${code}\n`
     }).join('\n').trim().replace(/^(.)/mg, '  $1')
-    return `
-/* eslint-disable */
-import { Plugin } from '@nuxt/types'
-import { NuxtAxiosInstance } from '@nuxtjs/axios'
-${this.importTypes(definitions)}
-${typeMatch}
-
-class ${this.className} {
-  private $axios: NuxtAxiosInstance
-  constructor ($axios: NuxtAxiosInstance) {
-    this.$axios = $axios
-  }
-
-${properties}
-}
-declare module '@nuxt/types' {
-  interface NuxtAppOptions { $${this.inject}: ${this.className} }
-}
-declare module 'vue/types/vue' {
-  interface Vue { $${this.inject}: ${this.className} }
-}
-declare module 'vuex/types/index' {
-  interface Store<S> { $${this.inject}: ${this.className} }
-}
-
-const plugin: Plugin = ({ $axios }, inject) => {
-  inject('${this.inject}', new ${this.className}($axios))
-}
-export default plugin
-`.trimStart()
+    return this.pluginTemplate({ properties })
   }
 }
