@@ -28,7 +28,7 @@ ${this.importTypes()}
 ${typeMatch}
 
 class ${this.className} {
-  private $axios: NuxtAxiosInstance
+  public $axios: NuxtAxiosInstance
   constructor ($axios: NuxtAxiosInstance) {
     this.$axios = $axios
   }
