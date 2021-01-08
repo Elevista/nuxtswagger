@@ -33,8 +33,8 @@ const fillArgvFromJson = (argv:Argv) => {
 const optionWithDefaults = (argv:Argv):Options => {
   const { join } = require('path')
   const {
-    _: [arg1],
-    src = arg1,
+    src: srcOpt,
+    _: [src = srcOpt],
     pluginsDir = 'plugins',
     pluginName = 'api',
     inject = pluginName,
