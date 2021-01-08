@@ -1,18 +1,37 @@
-import { Method, MethodTypes, Types, Ref, TypeArray, TypeObject, ParameterTypes, Spec } from './Spec'
+import { Method, MethodTypes, Types, TypeArray, TypeObject, ParameterTypes, Spec, Definitions } from './Spec'
 import { TemplateBase } from '../TemplateBase'
+import { camelCase } from '../utils'
 interface Parameter {type: string, required: boolean, name: string}
-
 const _ = require('lodash')
-const $refPrefix = '#/definitions/'
+
 export default class Template extends TemplateBase {
   private readonly spec:Spec
 
   constructor (spec: Spec, { pluginName, basePath, inject, relTypePath }: { pluginName: string, basePath: string, inject: string, relTypePath: string }) {
     super({ pluginName, basePath, inject, relTypePath })
-    this.spec = spec
+    this.spec = this.fixDefDeep(spec)
   }
 
-  strip (ref:Ref) { return ref.$ref.replace($refPrefix, '') || '' }
+  fixDefDeep (spec:Spec) {
+    const definitions:Definitions = {}
+    const fix = (name: string) => name
+      .replace(/^#\/definitions\//, '')
+      .replace(/«/g, '_of_')
+      .replace(/[» ]+/g, '')
+      .replace(/.+/, camelCase)
+    Object.entries(spec.definitions).forEach(([key, value]) => {
+      definitions[fix(key)] = value
+    })
+    spec.definitions = definitions
+    const deep = (o:any) => {
+      if (!(o instanceof Object)) return
+      if ('$ref' in o) o.$ref = fix(o.$ref)
+      else if (o instanceof Array) o.forEach(deep)
+      else Object.values(o).forEach(deep)
+    }
+    deep(spec)
+    return spec
+  }
 
   importTypes () {
     return `import { ${Object.keys(this.spec.definitions).join(', ')} } from '${this.relTypePath}'`
@@ -27,7 +46,7 @@ export default class Template extends TemplateBase {
 
   typeDeep (typeObj:Types|ParameterTypes):string {
     if ('schema' in typeObj) return this.typeDeep(typeObj.schema)
-    if ('$ref' in typeObj) return this.strip(typeObj)
+    if ('$ref' in typeObj) return typeObj.$ref
     if ('enum' in typeObj) {
       return `(${typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | ')})`
     }
@@ -79,7 +98,7 @@ export default class Template extends TemplateBase {
   }
 
   axiosCall (path: string, method: MethodTypes, { parameters, responses, summary }: Method) {
-    const pathParams:{[key:string]:Parameter|undefined} = _(path.match(/{\w+}/g))
+    const pathParams:{[key:string]:Parameter|undefined} = _(path.match(/{.+?}/g))
       .map((x:string) => x.replace(/[{}]/g, '')).zipObject().value()
     let body:Parameter|undefined
     const [headers, query]: [{ [x: string]: Parameter }, { [x: string]: Parameter }] = [{}, {}]
@@ -112,7 +131,7 @@ export default class Template extends TemplateBase {
     const schema:Types|{} = _.get(responses, '200.schema') || {}
     let type = 'any'
     if ('type' in schema) type = schema.type
-    if ('$ref' in schema) type = this.strip(schema)
+    if ('$ref' in schema) type = schema.$ref
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
     return `${this.params(params)}: Promise<${type}> => this.$axios.$${method}(${paramsString})/*${summary}*/`
   }
