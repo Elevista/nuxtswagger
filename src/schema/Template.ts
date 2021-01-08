@@ -1,8 +1,9 @@
-import { Method, MethodTypes, Types, TypeArray, TypeObject, ParameterTypes, Spec, Definitions } from './Spec'
+import { Method, MethodTypes, Types, TypeArray, TypeObject, ParameterTypes, Spec, Definitions, ParameterPositions } from './Spec'
 import { TemplateBase } from '../TemplateBase'
 import { camelCase } from '../utils'
-interface Parameter {type: string, required: boolean, name: string, valName:string}
+interface Parameter { type: string, required: boolean, name: string, valName:string, pos:ParameterPositions }
 const _ = require('lodash')
+const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
 
 export default class Template extends TemplateBase {
   private readonly spec:Spec
@@ -88,13 +89,22 @@ export default class Template extends TemplateBase {
   }
 
   params (args: Parameter[]) {
-    const [requires, optionals]:[string[], string[]] = [[], []]
-    args.forEach(({ valName: name, type, required }) => {
-      const optional = required ? '' : '?'
-      const res = `${name}${optional}: ${type}`
-      required ? requires.push(res) : optionals.push(res)
-    })
-    return `(${[...requires, ...optionals].join(', ')})`
+    const { path = [], body = [], ...others }: { [_: string]: Parameter[] | undefined } = _.groupBy(args, 'pos')
+    const map = (args:Parameter[]) => {
+      const [names, requires, optionals]:[string[], string[], string[]] = [[], [], []]
+      args.forEach(({ valName: name, type, required }) => {
+        const optional = required ? '' : '?'
+        const res = `${name}${optional}: ${type}`
+        required ? requires.push(res) : optionals.push(res)
+        names.push(name)
+      })
+      return [names, requires, optionals]
+    }
+    if ((args.length - (path.length + body.length)) < 5) return `(${map(args).slice(-2).flat().join(', ')})`
+    const [requires, optionals] = map([...path, ...body]).slice(-2)
+    const [names, ...rest] = map(Object.values(others).filter(exists).flat())
+    const obj = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} } = {}`
+    return `(${[requires, obj, optionals].flat().join(', ')})`
   }
 
   axiosCall (path: string, method: MethodTypes, { parameters, responses, summary }: Method) {
@@ -104,12 +114,12 @@ export default class Template extends TemplateBase {
     const [headers, query]: [{ [x: string]: Parameter }, { [x: string]: Parameter }] = [{}, {}]
     parameters?.forEach((parameter) => {
       const type = this.typeDeep(parameter)
-      const { in: inside, required = false, name } = parameter
+      const { in: pos, required = false, name } = parameter
       const valName = camelCase(name)
-      if (inside === 'header') { headers[name] = { name, valName, type, required } }
-      if (inside === 'query') { query[name] = { name, valName, type, required } }
-      if (inside === 'body') { body = { name: 'data', valName: 'data', type, required: true } }
-      if (inside === 'path') { pathParams[name] = { name, valName, type, required: true } }
+      if (pos === 'header') { headers[name] = { name, valName, pos, type, required } }
+      if (pos === 'query') { query[name] = { name, valName, pos, type, required } }
+      if (pos === 'body') { body = { name: pos, valName: pos, pos, type, required: true } }
+      if (pos === 'path') { pathParams[name] = { name, valName, pos, type, required: true } }
     })
     const arrOf = {
       queries: Object.values(query),
