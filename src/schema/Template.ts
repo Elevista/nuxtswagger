@@ -1,7 +1,7 @@
 import { Method, MethodTypes, Types, TypeArray, TypeObject, ParameterTypes, Spec, Definitions } from './Spec'
 import { TemplateBase } from '../TemplateBase'
 import { camelCase } from '../utils'
-interface Parameter {type: string, required: boolean, name: string}
+interface Parameter {type: string, required: boolean, name: string, valName:string}
 const _ = require('lodash')
 
 export default class Template extends TemplateBase {
@@ -87,9 +87,9 @@ export default class Template extends TemplateBase {
     })
   }
 
-  params (args: Array<Parameter>) {
+  params (args: Parameter[]) {
     const [requires, optionals]:[string[], string[]] = [[], []]
-    args.forEach(({ name, type, required }) => {
+    args.forEach(({ valName: name, type, required }) => {
       const optional = required ? '' : '?'
       const res = `${name}${optional}: ${type}`
       required ? requires.push(res) : optionals.push(res)
@@ -100,15 +100,16 @@ export default class Template extends TemplateBase {
   axiosCall (path: string, method: MethodTypes, { parameters, responses, summary }: Method) {
     const pathParams:{[key:string]:Parameter|undefined} = _(path.match(/{.+?}/g))
       .map((x:string) => x.replace(/[{}]/g, '')).zipObject().value()
-    let body:Parameter|undefined
+    let body: Parameter | undefined
     const [headers, query]: [{ [x: string]: Parameter }, { [x: string]: Parameter }] = [{}, {}]
     parameters?.forEach((parameter) => {
       const type = this.typeDeep(parameter)
       const { in: inside, required = false, name } = parameter
-      if (inside === 'header') { headers[name] = { name, type, required } }
-      if (inside === 'query') { query[name] = { name, type, required } }
-      if (inside === 'body') { body = { name: 'data', type, required: true } }
-      if (inside === 'path') { pathParams[name] = { name, type, required: true } }
+      const valName = camelCase(name)
+      if (inside === 'header') { headers[name] = { name, valName, type, required } }
+      if (inside === 'query') { query[name] = { name, valName, type, required } }
+      if (inside === 'body') { body = { name: 'data', valName: 'data', type, required: true } }
+      if (inside === 'path') { pathParams[name] = { name, valName, type, required: true } }
     })
     const arrOf = {
       queries: Object.values(query),
@@ -123,7 +124,9 @@ export default class Template extends TemplateBase {
     if (body) { axiosParams[1] = body.name }
     if (arrOf.headers.length || arrOf.queries.length) {
       const noBody = /get|delete/.test(method)
-      const join = (arr:Parameter[]) => arr.map(x => x.name).join(', ')
+      const join = (arr:Parameter[]) => arr.map(x =>
+        x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`
+      ).join(', ')
       const headers = arrOf.headers.length ? `headers: { ${join(arrOf.headers)} }` : ''
       const params = arrOf.queries.length ? `params: { ${join(arrOf.queries)} }` : ''
       axiosParams[noBody ? 1 : 2] = `{ ${[headers, params].filter(x => x).join(', ')} }`
