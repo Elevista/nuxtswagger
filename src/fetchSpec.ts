@@ -1,9 +1,10 @@
 import * as c from 'chalk'
 import { fetch } from 'cross-fetch'
-import { Spec } from './spec/OpenAPI2'
+import { Spec as v2 } from './schema/Spec'
+import { Spec as v3 } from './schema/v3/Spec'
 const fs = require('fs')
 const p = require('path')
-export default async function (path:string):Promise<Spec> {
+export default async function (path: string): Promise<v2 | v3> {
   const isRemote = /^[a-z]+?:\/\//.test(path)
   if (!isRemote) return JSON.parse(fs.readFileSync(p.resolve(path)).toString())
   console.log(c.cyan('fetching'), 'JSON from', c.underline(path))

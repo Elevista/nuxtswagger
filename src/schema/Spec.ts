@@ -131,6 +131,4 @@ export interface Spec {
   info: { title: string, version: string, description: string }
   definitions: Definitions
   paths: Paths
-
-  [rest: string]: any
 }

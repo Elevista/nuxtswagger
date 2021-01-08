@@ -1,26 +1,41 @@
-import { Definitions, Method, MethodTypes, Paths, Types, Ref, TypeArray, TypeObject, ParameterTypes } from './spec/OpenAPI2'
-interface Parameter {type: string, required: boolean, name: string}
-
+import { Method, MethodTypes, Types, TypeArray, TypeObject, ParameterTypes, Spec, Definitions, ParameterPositions } from './Spec'
+import { TemplateBase } from '../TemplateBase'
+import { camelCase } from '../utils'
+interface Parameter { type: string, required: boolean, name: string, valName:string, pos:ParameterPositions }
 const _ = require('lodash')
-const typeMatch = 'type integer = number'
-export default class Template {
-  private readonly relTypePath:string
-  private readonly $refPrefix:string
-  private readonly basePath:string
-  private readonly inject:string
-  private readonly className:string
-  constructor ({ pluginName, basePath, inject, relTypePath, $refPrefix = '#/definitions/' }:{pluginName:string, basePath:string, inject:string, relTypePath:string, $refPrefix:string}) {
-    this.relTypePath = relTypePath
-    this.$refPrefix = $refPrefix
-    this.basePath = basePath
-    this.inject = inject.replace(/^[^a-zA-Z]+/, '').replace(/^[A-Z]/, x => x.toLowerCase())
-    this.className = pluginName.replace(/^[^a-zA-Z]+/, '').replace(/^[a-z]/, x => x.toUpperCase())
+const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
+
+export default class Template extends TemplateBase {
+  private readonly spec:Spec
+
+  constructor (spec: Spec, { pluginName, basePath, inject, relTypePath }: { pluginName: string, basePath: string, inject: string, relTypePath: string }) {
+    super({ pluginName, basePath, inject, relTypePath })
+    this.spec = this.fixDefDeep(spec)
   }
 
-  strip (ref:Ref) { return ref.$ref.replace(this.$refPrefix, '') || '' }
+  fixDefDeep (spec:Spec) {
+    const definitions:Definitions = {}
+    const fix = (name: string) => name
+      .replace(/^#\/definitions\//, '')
+      .replace(/«/g, '_of_')
+      .replace(/[» ]+/g, '')
+      .replace(/.+/, camelCase)
+    Object.entries(spec.definitions).forEach(([key, value]) => {
+      definitions[fix(key)] = value
+    })
+    spec.definitions = definitions
+    const deep = (o:any) => {
+      if (!(o instanceof Object)) return
+      if ('$ref' in o) o.$ref = fix(o.$ref)
+      else if (o instanceof Array) o.forEach(deep)
+      else Object.values(o).forEach(deep)
+    }
+    deep(spec)
+    return spec
+  }
 
-  importTypes (definitions:Definitions) {
-    return `import { ${Object.keys(definitions).join(', ')} } from '${this.relTypePath}'`
+  importTypes () {
+    return `import { ${Object.keys(this.spec.definitions).join(', ')} } from '${this.relTypePath}'`
   }
 
   comment (comment?:string|number|boolean) {
@@ -32,7 +47,7 @@ export default class Template {
 
   typeDeep (typeObj:Types|ParameterTypes):string {
     if ('schema' in typeObj) return this.typeDeep(typeObj.schema)
-    if ('$ref' in typeObj) return this.strip(typeObj)
+    if ('$ref' in typeObj) return typeObj.$ref
     if ('enum' in typeObj) {
       return `(${typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | ')})`
     }
@@ -47,7 +62,8 @@ export default class Template {
     return typeObj.type
   }
 
-  definitions (definitions:Definitions) {
+  definitions () {
+    const { definitions } = this.spec
     const array = (name:string, definition:TypeArray) => {
       const type = this.typeDeep(definition)
       return `export type ${name} = ${type}`
@@ -61,40 +77,49 @@ export default class Template {
       }).join('\n').replace(/^(.)/mg, '  $1')
       return `export interface ${name} {\n${content}\n}`
     }
-    return [
-      '/* eslint-disable */',
-      typeMatch,
-      ...Object.entries(definitions).map(([name, definition]) => {
+    return this.definitionsTemplate({
+      definitions: Object.entries(definitions).map(([name, definition]) => {
         if ('type' in definition) {
           if (definition.type === 'array') return array(name, definition)
           if (definition.type === 'object') return object(name, definition)
         }
         return undefined
-      }).filter(x => x), ''].join('\n')
+      }).filter(x => x).join('\n')
+    })
   }
 
-  params (args: Array<Parameter>) {
-    const [requires, optionals]:[string[], string[]] = [[], []]
-    args.forEach(({ name, type, required }) => {
-      const optional = required ? '' : '?'
-      const res = `${name}${optional}: ${type}`
-      required ? requires.push(res) : optionals.push(res)
-    })
-    return `(${[...requires, ...optionals].join(', ')})`
+  params (args: Parameter[]) {
+    const { path = [], body = [], ...others }: { [_: string]: Parameter[] | undefined } = _.groupBy(args, 'pos')
+    const map = (args:Parameter[]) => {
+      const [names, requires, optionals]:[string[], string[], string[]] = [[], [], []]
+      args.forEach(({ valName: name, type, required }) => {
+        const optional = required ? '' : '?'
+        const res = `${name}${optional}: ${type}`
+        required ? requires.push(res) : optionals.push(res)
+        names.push(name)
+      })
+      return [names, requires, optionals]
+    }
+    if ((args.length - (path.length + body.length)) < 5) return `(${map(args).slice(-2).flat().join(', ')})`
+    const [requires, optionals] = map([...path, ...body]).slice(-2)
+    const [names, ...rest] = map(Object.values(others).filter(exists).flat())
+    const obj = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} } = {}`
+    return `(${[requires, obj, optionals].flat().join(', ')})`
   }
 
   axiosCall (path: string, method: MethodTypes, { parameters, responses, summary }: Method) {
-    const pathParams:{[key:string]:Parameter|undefined} = _(path.match(/{\w+}/g))
+    const pathParams:{[key:string]:Parameter|undefined} = _(path.match(/{.+?}/g))
       .map((x:string) => x.replace(/[{}]/g, '')).zipObject().value()
-    let body:Parameter|undefined
+    let body: Parameter | undefined
     const [headers, query]: [{ [x: string]: Parameter }, { [x: string]: Parameter }] = [{}, {}]
     parameters?.forEach((parameter) => {
       const type = this.typeDeep(parameter)
-      const { in: inside, required = false, name } = parameter
-      if (inside === 'header') { headers[name] = { name, type, required } }
-      if (inside === 'query') { query[name] = { name, type, required } }
-      if (inside === 'body') { body = { name: 'data', type, required: true } }
-      if (inside === 'path') { pathParams[name] = { name, type, required: true } }
+      const { in: pos, required = false, name } = parameter
+      const valName = camelCase(name)
+      if (pos === 'header') { headers[name] = { name, valName, pos, type, required } }
+      if (pos === 'query') { query[name] = { name, valName, pos, type, required } }
+      if (pos === 'body') { body = { name: pos, valName: pos, pos, type, required: true } }
+      if (pos === 'path') { pathParams[name] = { name, valName, pos, type, required: true } }
     })
     const arrOf = {
       queries: Object.values(query),
@@ -109,7 +134,9 @@ export default class Template {
     if (body) { axiosParams[1] = body.name }
     if (arrOf.headers.length || arrOf.queries.length) {
       const noBody = /get|delete/.test(method)
-      const join = (arr:Parameter[]) => arr.map(x => x.name).join(', ')
+      const join = (arr:Parameter[]) => arr.map(x =>
+        x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`
+      ).join(', ')
       const headers = arrOf.headers.length ? `headers: { ${join(arrOf.headers)} }` : ''
       const params = arrOf.queries.length ? `params: { ${join(arrOf.queries)} }` : ''
       axiosParams[noBody ? 1 : 2] = `{ ${[headers, params].filter(x => x).join(', ')} }`
@@ -117,12 +144,13 @@ export default class Template {
     const schema:Types|{} = _.get(responses, '200.schema') || {}
     let type = 'any'
     if ('type' in schema) type = schema.type
-    if ('$ref' in schema) type = this.strip(schema)
+    if ('$ref' in schema) type = schema.$ref
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
     return `${this.params(params)}: Promise<${type}> => this.$axios.$${method}(${paramsString})/*${summary}*/`
   }
 
-  plugin (paths:Paths, definitions:Definitions) {
+  plugin () {
+    const { paths } = this.spec
     const propTree:{[paths:string]:string} = {}
     const base = this.basePath
     Object.entries(paths).forEach(([path, methods]) => {
@@ -147,35 +175,6 @@ export default class Template {
         })
       return `${property} = ${code}\n`
     }).join('\n').trim().replace(/^(.)/mg, '  $1')
-    return `
-/* eslint-disable */
-import { Plugin } from '@nuxt/types'
-import { NuxtAxiosInstance } from '@nuxtjs/axios'
-${this.importTypes(definitions)}
-${typeMatch}
-
-class ${this.className} {
-  private $axios: NuxtAxiosInstance
-  constructor ($axios: NuxtAxiosInstance) {
-    this.$axios = $axios
-  }
-
-${properties}
-}
-declare module '@nuxt/types' {
-  interface NuxtAppOptions { $${this.inject}: ${this.className} }
-}
-declare module 'vue/types/vue' {
-  interface Vue { $${this.inject}: ${this.className} }
-}
-declare module 'vuex/types/index' {
-  interface Store<S> { $${this.inject}: ${this.className} }
-}
-
-const plugin: Plugin = ({ $axios }, inject) => {
-  inject('${this.inject}', new ${this.className}($axios))
-}
-export default plugin
-`.trimStart()
+    return this.pluginTemplate({ properties })
   }
 }
