@@ -38,8 +38,9 @@ export default class Template extends TemplateBase {
     return `import { ${Object.keys(this.spec.definitions).join(', ')} } from '${this.relTypePath}'`
   }
 
-  comment (comment?:string|number|boolean) {
-    if (!comment) { return '' }
+  comment (comment?:string|number|boolean|object) {
+    if (comment === undefined) { return '' }
+    if (comment === Object(comment)) comment = JSON.stringify(comment)
     const lines = comment.toString().trim().split('\n')
     if (lines.length === 1) { return ` // ${lines[0]}` }
     return ['\n/**', ...lines.map(x => ` * ${x}`), ' */'].join('\n')
