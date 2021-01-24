@@ -1,6 +1,6 @@
 import { Method, MethodTypes, Types, TypeArray, TypeObject, ParameterTypes, Spec, Definitions, ParameterPositions } from './Spec'
-import { TemplateBase } from '../TemplateBase'
-import { camelCase } from '../utils'
+import { TemplateBase } from '../../TemplateBase'
+import { camelCase } from '../../utils'
 interface Parameter { type: string, required: boolean, name: string, valName:string, pos:ParameterPositions }
 const _ = require('lodash')
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
@@ -142,7 +142,7 @@ export default class Template extends TemplateBase {
       const params = arrOf.queries.length ? `params: { ${join(arrOf.queries)} }` : ''
       axiosParams[noBody ? 1 : 2] = `{ ${[headers, params].filter(x => x).join(', ')} }`
     }
-    const schema:Types|{} = _.get(responses, '200.schema') || {}
+    const schema:Types|{} = responses?.[200]?.schema || {}
     let type = 'any'
     if ('type' in schema) type = schema.type
     if ('$ref' in schema) type = schema.$ref

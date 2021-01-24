@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import V2 from './schema/Template'
+import V2 from './schema/v2/Template'
 // import V3 from './schema/v3/Template'
 import fetchSpec from './fetchSpec'
 const fs = require('fs')
