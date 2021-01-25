@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import V2 from './schema/v2/Template'
-// import V3 from './schema/v3/Template'
+import V3 from './schema/v3/Template'
 import fetchSpec from './fetchSpec'
 const fs = require('fs')
 const mkdirp = require('mkdirp')
@@ -71,7 +71,7 @@ const run = async function () {
   let template
   const templateOptions = { ...options, relTypePath }
   if (('swagger' in spec) && spec.swagger === '2.0') template = new V2(spec, templateOptions)
-  // if (('openapi' in spec) && parseInt(spec.openapi) === 3) template = new V3(spec, templateOptions)
+  if (('openapi' in spec) && parseInt(spec.openapi) === 3) template = new V3(spec, templateOptions)
 
   if (!template) throw Error('not support')
   console.log(c.green('  create'), pluginPath)
