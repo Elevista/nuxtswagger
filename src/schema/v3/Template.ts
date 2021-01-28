@@ -1,7 +1,7 @@
 import { Method, MethodTypes, Types, TypeArray, TypeObject, ParameterTypes, Spec, Schemas, ParameterPositions } from './Spec'
 import { TemplateBase } from '../../TemplateBase'
 import { camelCase } from '../../utils'
-interface Parameter { type: string, required: boolean, name: string, valName:string, pos: ParameterPositions | 'body' }
+interface Parameter { type: string, required: boolean, name: string, valName:string, pos: ParameterPositions | '$body' | '$config' }
 const _ = require('lodash')
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
 
@@ -90,22 +90,25 @@ export default class Template extends TemplateBase {
   }
 
   params (args: Parameter[]) {
-    const { path = [], body = [], ...others }: { [_: string]: Parameter[] | undefined } = _.groupBy(args, 'pos')
-    const map = (args:Parameter[]) => {
-      const [names, requires, optionals]:[string[], string[], string[]] = [[], [], []]
-      args.forEach(({ valName: name, type, required }) => {
-        const optional = required ? '' : '?'
-        const res = `${name}${optional}: ${type}`
-        required ? requires.push(res) : optionals.push(res)
-        names.push(name)
-      })
-      return [names, requires, optionals]
+    const arr = () => {
+      const { path = [], body = [], $config, ...others }: { [_: string]: Parameter[] | undefined } = _.groupBy(args, 'pos')
+      const map = (args:Parameter[]) => {
+        const [names, requires, optionals]:[string[], string[], string[]] = [[], [], []]
+        args.forEach(({ valName: name, type, required }) => {
+          const optional = required ? '' : '?'
+          const res = `${name}${optional}: ${type}`
+          required ? requires.push(res) : optionals.push(res)
+          names.push(name)
+        })
+        return [names, requires, optionals]
+      }
+      if ((args.length - (path.length + body.length)) < 5) return map(args).slice(-2).flat()
+      const [requires, optionals] = map([...path, ...body]).slice(-2)
+      const [names, ...rest] = map(Object.values(others).concat($config).filter(exists).flat())
+      const obj = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} } = {}`
+      return [requires, obj, optionals].flat()
     }
-    if ((args.length - (path.length + body.length)) < 5) return `(${map(args).slice(-2).flat().join(', ')})`
-    const [requires, optionals] = map([...path, ...body]).slice(-2)
-    const [names, ...rest] = map(Object.values(others).filter(exists).flat())
-    const obj = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} } = {}`
-    return `(${[requires, obj, optionals].flat().join(', ')})`
+    return `(${arr().join(', ')})`
   }
 
   axiosCall (path: string, method: MethodTypes, { requestBody, parameters, responses, summary }: Method) {
@@ -122,7 +125,7 @@ export default class Template extends TemplateBase {
       if (pos === 'path') { pathParams[name] = { name, valName, pos, type, required: true } }
     })
     if (requestBody) {
-      const pos = 'body'
+      const pos = '$body'
       const { required = false, content } = requestBody
       const { schema } = content['application/json'] || {}
       if (schema) body = { name: pos, valName: pos, pos, type: this.typeDeep(schema), required }
@@ -135,17 +138,23 @@ export default class Template extends TemplateBase {
     params.push(...arrOf.queries)
     if (body) { params.push(body) }
     params.push(...arrOf.headers)
+    const $config:Parameter = {
+      name: '$config', valName: '$config', pos: '$config', type: 'AxiosRequestConfig', required: false
+    }
+    params.push($config)
 
     const axiosParams = [`\`${path.replace(/{/g, '${')}\``]
     if (body) { axiosParams[1] = body.name }
-    if (arrOf.headers.length || arrOf.queries.length) {
+    {
       const noBody = /get|delete/.test(method)
-      const join = (arr:Parameter[]) => arr.map(x =>
-        x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`
-      ).join(', ')
-      const headers = arrOf.headers.length ? `headers: { ${join(arrOf.headers)} }` : ''
-      const params = arrOf.queries.length ? `params: { ${join(arrOf.queries)} }` : ''
-      axiosParams[noBody ? 1 : 2] = `{ ${[headers, params].filter(x => x).join(', ')} }`
+      if (arrOf.headers.length || arrOf.queries.length) {
+        const join = (arr: Parameter[]) => arr.map(x =>
+          x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`
+        ).join(', ')
+        const headers = arrOf.headers.length ? `headers: { ${join(arrOf.headers)} }` : ''
+        const params = arrOf.queries.length ? `params: { ${join(arrOf.queries)} }` : ''
+        axiosParams[noBody ? 1 : 2] = `{ ${[headers, params, '...' + $config.valName].filter(x => x).join(', ')} }`
+      } else axiosParams[noBody ? 1 : 2] = $config.valName
     }
     const schema:Types|{} = responses?.[200].content?.['application/json']?.schema || {}
     let type = 'any'

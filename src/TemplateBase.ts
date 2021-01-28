@@ -23,6 +23,7 @@ export abstract class TemplateBase {
     return `
 /* eslint-disable */
 import { Plugin } from '@nuxt/types'
+import { AxiosRequestConfig } from 'axios'
 import { NuxtAxiosInstance } from '@nuxtjs/axios'
 ${this.importTypes()}
 ${typeMatch}
