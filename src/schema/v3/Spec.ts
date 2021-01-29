@@ -11,6 +11,7 @@ export interface Ref {
 
 export type TypeProto<T = string> = {
   type: TypeNames,
+  title?: T
   example?: T
   default?: T
 }

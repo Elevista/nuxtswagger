@@ -73,7 +73,11 @@ export default class Template extends TemplateBase {
       const content = Object.entries(properties || {}).map(([property, definition]) => {
         const type = this.typeDeep(definition)
         const optional = required?.includes(property) ? '' : '?'
-        const comment = ('example' in definition) ? this.comment(definition.example) : ''
+        const title = ('title' in definition) ? this.comment(definition.title) : ''
+        const example = ('example' in definition) ? this.comment(definition.example) : ''
+        let comment = title
+        if (example.startsWith('\n')) comment += example
+        else if (title && example) comment += example.replace('// ', '(') + ')'
         return `${property}${optional}: ${type}${comment}`
       }).join('\n').replace(/^(.)/mg, '  $1')
       return `export interface ${name} {\n${content}\n}`
