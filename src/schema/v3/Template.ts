@@ -1,5 +1,5 @@
 import { Method, MethodTypes, Types, TypeArray, TypeObject, ParameterTypes, Spec, Schemas, ParameterPositions } from './Spec'
-import { TemplateBase } from '../../TemplateBase'
+import { TemplateBase, TemplateOptions } from '../../TemplateBase'
 import { camelCase } from '../../utils'
 interface Parameter { type: string, required: boolean, name: string, valName:string, pos: ParameterPositions | '$body' | '$config' }
 const _ = require('lodash')
@@ -8,8 +8,8 @@ const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!
 export default class Template extends TemplateBase {
   private readonly spec:Spec
 
-  constructor (spec: Spec, { pluginName, basePath, inject, relTypePath }: { pluginName: string, basePath: string, inject: string, relTypePath: string }) {
-    super({ pluginName, basePath, inject, relTypePath })
+  constructor (spec: Spec, options: TemplateOptions) {
+    super(options)
     this.spec = this.fixDefDeep(spec)
   }
 
@@ -124,7 +124,7 @@ export default class Template extends TemplateBase {
       const type = this.typeDeep(parameter)
       const { in: pos, required = false, name } = parameter
       const valName = camelCase(name)
-      if (pos === 'header') { headers[name] = { name, valName, pos, type, required } }
+      if (!this.skipHeader && pos === 'header') { headers[name] = { name, valName, pos, type, required } }
       if (pos === 'query') { query[name] = { name, valName, pos, type, required } }
       if (pos === 'path') { pathParams[name] = { name, valName, pos, type, required: true } }
     })

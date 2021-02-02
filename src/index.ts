@@ -13,10 +13,11 @@ enum OptionsEnum {
   pluginName = 'pluginName',
   inject = 'inject',
   typePath = 'typePath',
-  basePath = 'basePath'
+  basePath = 'basePath',
+  skipHeader = 'skipHeader'
 }
 
-type Options = { [name in OptionsEnum]: string }
+export type Options = { [name in keyof Omit<typeof OptionsEnum, 'skipHeader'>]: string } & { skipHeader: boolean }
 interface Argv extends Partial<Options> { _: [string?] }
 
 const fillArgvFromJson = (argv:Argv) => {
@@ -25,7 +26,7 @@ const fillArgvFromJson = (argv:Argv) => {
     const { nuxtswagger }: { nuxtswagger: Partial<Options> } = require(jsonPath)
     Object.entries(nuxtswagger).forEach(([key, value]) => {
       if (!(key in OptionsEnum)) return
-      if (!(key in argv)) argv[key as OptionsEnum] = value
+      if (!(key in argv)) (argv as any)[key] = value
     })
   } catch (e) { }
 }
@@ -39,10 +40,11 @@ const optionWithDefaults = (argv:Argv):Options => {
     pluginName = 'api',
     inject = pluginName,
     typePath = join(pluginsDir, pluginName, 'types.ts'),
-    basePath = '/v1'
+    basePath = '/v1',
+    skipHeader
   } = argv
   if (!src) throw Error('No JSON path provided')
-  return { src, pluginsDir, pluginName, inject, typePath, basePath }
+  return { src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader: !!skipHeader }
 }
 
 const pluginRelTypePath = ({ pluginsDir, typePath, pluginName }:Options) => {
