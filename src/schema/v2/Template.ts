@@ -19,6 +19,7 @@ export default class Template extends TemplateBase {
       .replace(/^#\/definitions\//, '')
       .replace(/«/g, '_of_')
       .replace(/[» ]+/g, '')
+      .replace(/[^0-9a-zA-Z_$]/g, '')
       .replace(/.+/, camelCase)
     Object.entries(spec.definitions).forEach(([key, value]) => {
       definitions[fix(key)] = value

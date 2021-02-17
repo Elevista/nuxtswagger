@@ -19,6 +19,7 @@ export default class Template extends TemplateBase {
       .replace(/^#\/components\/schemas\//, '')
       .replace(/«/g, '_of_')
       .replace(/[» ]+/g, '')
+      .replace(/[^0-9a-zA-Z_$]/g, '')
       .replace(/.+/, camelCase)
     Object.entries(spec.components.schemas).forEach(([key, value]) => {
       schemas[fix(key)] = value
