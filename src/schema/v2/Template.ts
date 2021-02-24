@@ -105,8 +105,9 @@ export default class Template extends TemplateBase {
       }
       if ((args.length - (path.length + body.length)) < 5) return map(args).slice(-2).flat()
       const [requires, optionals] = map([...path, ...body]).slice(-2)
-      const [names, ...rest] = map(Object.values(others).concat($config).filter(exists).flat())
-      const obj = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} }`
+      const [names, ...rest] = map(Object.values(others).filter(exists).flat())
+      let obj = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} }`
+      if ($config) obj += ', ' + map($config).slice(1).flat().join(', ')
       return [requires, obj, optionals].flat()
     }
     return `(${arr().join(', ')})`
