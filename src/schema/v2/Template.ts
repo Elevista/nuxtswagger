@@ -4,6 +4,7 @@ import { camelCase } from '../../utils'
 interface Parameter { type: string, required: boolean, name: string, valName:string, pos: ParameterPositions | '$config' }
 const _ = require('lodash')
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
+const entriesCompare = <T>([a]:[string, T], [b]:[string, T]) => a.localeCompare(b)
 
 export default class Template extends TemplateBase {
   private readonly spec:Spec
@@ -36,7 +37,7 @@ export default class Template extends TemplateBase {
   }
 
   importTypes () {
-    return `import { ${Object.keys(this.spec.definitions).join(', ')} } from '${this.relTypePath}'`
+    return `import { ${Object.keys(this.spec.definitions).sort().join(', ')} } from '${this.relTypePath}'`
   }
 
   comment (comment?:string|number|boolean|object) {
@@ -80,13 +81,14 @@ export default class Template extends TemplateBase {
       return `export interface ${name} {\n${content}\n}`
     }
     return this.definitionsTemplate({
-      definitions: Object.entries(definitions).map(([name, definition]) => {
-        if ('type' in definition) {
-          if (definition.type === 'array') return array(name, definition)
-          if (definition.type === 'object') return object(name, definition)
-        }
-        return undefined
-      }).filter(x => x).join('\n')
+      definitions: Object.entries(definitions).sort(entriesCompare)
+        .map(([name, definition]) => {
+          if ('type' in definition) {
+            if (definition.type === 'array') return array(name, definition)
+            if (definition.type === 'object') return object(name, definition)
+          }
+          return undefined
+        }).filter(x => x).join('\n')
     })
   }
 
@@ -165,14 +167,14 @@ export default class Template extends TemplateBase {
     const { paths } = this.spec
     const propTree:{[paths:string]:string} = {}
     const base = this.basePath
-    Object.entries(paths).forEach(([path, methods]) => {
+    Object.entries(paths).sort(entriesCompare).forEach(([path, methods]) => {
       const keyPath = (path.startsWith(base + '/') ? path.replace(base, '') : path)
         .replace(/[^/{}\w]/g, '_')
         .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()) // foo_bar => fooBar
         .replace(/{(\w+)}/g, '_$1') // {foo} => _foo
         .split(/\//).slice(1)
       if (/^v\d+$/.test(keyPath[0])) keyPath.push(keyPath.shift() || '')
-      Object.entries(methods).forEach(([key, method]) => {
+      Object.entries(methods).sort(entriesCompare).forEach(([key, method]) => {
         if (!(key in MethodTypes)) return
         const methodType = key as MethodTypes
         _.set(propTree, [...keyPath, methodType], this.axiosCall(path, methodType, method))
