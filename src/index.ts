@@ -1,6 +1,6 @@
 #!/usr/bin/env node
-import V2 from './schema/Template'
-// import V3 from './schema/v3/Template'
+import V2 from './schema/v2/Template'
+import V3 from './schema/v3/Template'
 import fetchSpec from './fetchSpec'
 const fs = require('fs')
 const mkdirp = require('mkdirp')
@@ -13,10 +13,11 @@ enum OptionsEnum {
   pluginName = 'pluginName',
   inject = 'inject',
   typePath = 'typePath',
-  basePath = 'basePath'
+  basePath = 'basePath',
+  skipHeader = 'skipHeader'
 }
 
-type Options = { [name in OptionsEnum]: string }
+export type Options = { [name in keyof Omit<typeof OptionsEnum, 'skipHeader'>]: string } & { skipHeader: boolean }
 interface Argv extends Partial<Options> { _: [string?] }
 
 const fillArgvFromJson = (argv:Argv) => {
@@ -25,7 +26,7 @@ const fillArgvFromJson = (argv:Argv) => {
     const { nuxtswagger }: { nuxtswagger: Partial<Options> } = require(jsonPath)
     Object.entries(nuxtswagger).forEach(([key, value]) => {
       if (!(key in OptionsEnum)) return
-      if (!(key in argv)) argv[key as OptionsEnum] = value
+      if (!(key in argv)) (argv as any)[key] = value
     })
   } catch (e) { }
 }
@@ -39,10 +40,11 @@ const optionWithDefaults = (argv:Argv):Options => {
     pluginName = 'api',
     inject = pluginName,
     typePath = join(pluginsDir, pluginName, 'types.ts'),
-    basePath = '/v1'
+    basePath = '/v1',
+    skipHeader
   } = argv
   if (!src) throw Error('No JSON path provided')
-  return { src, pluginsDir, pluginName, inject, typePath, basePath }
+  return { src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader: !!skipHeader }
 }
 
 const pluginRelTypePath = ({ pluginsDir, typePath, pluginName }:Options) => {
@@ -71,7 +73,7 @@ const run = async function () {
   let template
   const templateOptions = { ...options, relTypePath }
   if (('swagger' in spec) && spec.swagger === '2.0') template = new V2(spec, templateOptions)
-  // if (('openapi' in spec) && parseInt(spec.openapi) === 3) template = new V3(spec, templateOptions)
+  if (('openapi' in spec) && parseInt(spec.openapi) === 3) template = new V3(spec, templateOptions)
 
   if (!template) throw Error('not support')
   console.log(c.green('  create'), pluginPath)

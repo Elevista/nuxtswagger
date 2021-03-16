@@ -1,12 +1,17 @@
+import { Options } from './index'
+export type TemplateOptions = Options & { relTypePath: string }
+
 const typeMatch = 'type integer = number'
 export abstract class TemplateBase {
   protected readonly relTypePath:string
   protected readonly basePath:string
   protected readonly inject:string
   protected readonly className:string
-  protected constructor ({ pluginName, basePath, inject, relTypePath }: { pluginName: string, basePath: string, inject: string, relTypePath: string }) {
+  protected readonly skipHeader:boolean
+  protected constructor ({ pluginName, basePath, inject, skipHeader, relTypePath }:TemplateOptions) {
     this.relTypePath = relTypePath
     this.basePath = basePath
+    this.skipHeader = skipHeader
     this.inject = inject.replace(/^[^a-zA-Z]+/, '').replace(/^[A-Z]/, x => x.toLowerCase())
     this.className = pluginName.replace(/^[^a-zA-Z]+/, '').replace(/^[a-z]/, x => x.toUpperCase())
   }
@@ -23,6 +28,7 @@ export abstract class TemplateBase {
     return `
 /* eslint-disable */
 import { Plugin } from '@nuxt/types'
+import { AxiosRequestConfig } from 'axios'
 import { NuxtAxiosInstance } from '@nuxtjs/axios'
 ${this.importTypes()}
 ${typeMatch}

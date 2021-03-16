@@ -25,7 +25,7 @@ export interface TypeArray extends TypeProto {
   items: Types
 }
 
-export interface TypeObject extends TypeProto {
+export interface TypeObject extends TypeProto<object> {
   type: 'object',
   properties?: { [propertyName: string]: Types }
   required?: Array<string>
