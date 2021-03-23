@@ -28,6 +28,7 @@ export interface TypeArray extends TypeProto {
 
 export interface TypeObject extends TypeProto<object> {
   type: 'object',
+  additionalProperties?: Boolean|Types|{}
   properties?: { [propertyName: string]: Types }
   required?: Array<string>
 }
@@ -106,6 +107,7 @@ export interface ParameterArray extends ParameterProto {
 
 export interface ParameterObject extends ParameterProto {
   type: 'object',
+  additionalProperties?: Boolean|Types|{}
   properties?: { [propertyName: string]: Types }
 }
 

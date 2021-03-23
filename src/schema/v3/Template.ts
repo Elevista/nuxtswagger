@@ -57,10 +57,11 @@ export default class Template extends TemplateBase {
     if (!('type' in typeObj)) return 'any'
     if (typeObj.type === 'array') return `Array<${this.typeDeep(typeObj.items)}>`
     if (typeObj.type === 'object') {
-      if (!typeObj.properties) return 'any'
-      const types:string = Object.entries(typeObj.properties)
-        .map(([name, value]) => `${name}: ${this.typeDeep(value)}`).join(', ')
-      return `{ ${types} }`
+      const { properties, additionalProperties: additional } = typeObj
+      return [
+        properties && Object.entries(properties).map(([name, value]) => `${name}: ${this.typeDeep(value)}`).join(', '),
+        additional && `[key in any]?: ${'type' in additional ? this.typeDeep(additional) : 'any'}`
+      ].filter(x => x).map(x => `{ ${x} }`).join(' & ') || 'any'
     }
     return typeObj.type
   }
