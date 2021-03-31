@@ -183,6 +183,7 @@ export default class Template extends TemplateBase {
         .replace(/[^/{}\w]/g, '_')
         .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()) // foo_bar => fooBar
         .replace(/{(\w+)}/g, '_$1') // {foo} => _foo
+        .replace(/\/$/, '/$root')
         .split(/\//).slice(1)
       if (/^v\d+$/.test(keyPath[0])) keyPath.push(keyPath.shift() || '')
       Object.entries(methods).sort(entriesCompare).forEach(([key, method]) => {
