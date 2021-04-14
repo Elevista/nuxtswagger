@@ -101,9 +101,7 @@ export type ParameterString = ParameterCommon & TypeString
 export type ParameterNumber = ParameterCommon & TypeNumber
 export type ParameterTypes = (ParameterEnum | ParameterArray | ParameterObject | ParameterFormat | ParameterBoolean | ParameterString | ParameterNumber | ParameterSchema)
 
-export interface Schemas {
-  [schema: string]: Types
-}
+export type Schemas = { [schema: string]: Types }
 
 export interface Paths {
   [path: string]: Methods
