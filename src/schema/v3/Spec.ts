@@ -84,50 +84,21 @@ export type Methods = {
   [method in MethodTypes]: Method
 }
 
-export interface ParameterProto<T=string> extends TypeProto<T>{
+export type ParameterCommon = {
   in: ParameterPositions
   name: string
   required?: true
   description?: string
 }
 
-export interface ParameterSchema extends ParameterProto{
-  schema: Ref
-}
-
-export interface ParameterEnum extends ParameterProto {
-  type: 'string'
-  enum: Array<string>
-}
-
-export interface ParameterArray extends ParameterProto {
-  type: 'array',
-  items: Types
-}
-
-export interface ParameterObject extends ParameterProto {
-  type: 'object',
-  additionalProperties?: Boolean|Types|{}
-  properties?: { [propertyName: string]: Types }
-}
-
-export interface ParameterFormat extends ParameterProto {
-  type: 'string'
-  format: Formats
-}
-
-export interface ParameterBoolean extends ParameterProto<boolean> {
-  type: 'boolean'
-}
-
-export interface ParameterString extends ParameterProto {
-  type: 'string'
-}
-
-export interface ParameterNumber extends ParameterProto<number> {
-  type: ('number' | 'integer')
-}
-
+export type ParameterSchema = ParameterCommon & { schema: Ref }
+export type ParameterEnum = ParameterCommon & TypeEnum
+export type ParameterArray = ParameterCommon & TypeArray
+export type ParameterObject = ParameterCommon & TypeObject
+export type ParameterFormat = ParameterCommon & TypeFormat
+export type ParameterBoolean = ParameterCommon & TypeBoolean
+export type ParameterString = ParameterCommon & TypeString
+export type ParameterNumber = ParameterCommon & TypeNumber
 export type ParameterTypes = (ParameterEnum | ParameterArray | ParameterObject | ParameterFormat | ParameterBoolean | ParameterString | ParameterNumber | ParameterSchema)
 
 export interface Schemas {
