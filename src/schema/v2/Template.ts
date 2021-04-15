@@ -1,4 +1,4 @@
-import { Spec } from './Spec'
+import { Response, Spec } from './Spec'
 import { TemplateCommon, TemplateOptions } from '../../TemplateCommon'
 
 export default class Template extends TemplateCommon {
@@ -15,5 +15,10 @@ export default class Template extends TemplateCommon {
 
   definitions () {
     return this.definitionsBase(this.spec.definitions)
+  }
+
+  getResponseType ({ schema }: Response): string {
+    if (!schema) return 'any'
+    return this.typeDeep(schema)
   }
 }

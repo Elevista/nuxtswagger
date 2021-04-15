@@ -53,11 +53,13 @@ export interface TypeNumber extends TypeProto<number> {
 
 export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | Ref)
 
+export interface Response {
+  description?: string
+  schema?: Types
+}
+
 export interface Responses {
-  [statusCode: number]: {
-    description?: string
-    schema: Types
-  }
+  [statusCode: number]:Response
 }
 
 export interface Method {

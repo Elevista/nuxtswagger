@@ -4,13 +4,14 @@ import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
 type ParameterPositions = v2.ParameterPositions| v3.ParameterPositions
 interface Parameter { type: string, required: boolean, name: string, valName:string, pos: ParameterPositions | '$body' | '$config' }
+type Response = v2.Response | v3.Response
 type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes
 type Spec = v2.Spec | v3.Spec
-type Method = v2.Method & v3.Method
+type Method = v2.Method | v3.Method
 type Schemas = v2.Definitions | v3.Schemas
 type Types = v2.Types | v3.Types
 type TypeArray = v2.TypeArray | v3.TypeArray
-type TypeObject = v2.TypeObject & v3.TypeObject
+type TypeObject = v2.TypeObject | v3.TypeObject
 
 enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
 export type TemplateOptions = Options & { relTypePath: string }
@@ -38,6 +39,7 @@ export abstract class TemplateCommon {
 
   abstract definitions():string
   abstract importTypes():string
+  abstract getResponseType(response:Response):string
 
   fixTypeName = (name: string) => name
     .replace(/^#\/(components\/schemas|definitions)\//, '')
@@ -121,7 +123,8 @@ export abstract class TemplateCommon {
       return `export type ${name} = ${type}`
     }
     const object = (name:string, { properties, required }:TypeObject) => {
-      const content = Object.entries(properties || {}).map(([property, definition]) => {
+      const entries:Array<[string, Types]> = properties ? Object.entries(properties) : []
+      const content = entries.map(([property, definition]) => {
         const type = this.typeDeep(definition)
         const optional = required?.includes(property) ? '' : '?'
         const title = ('title' in definition) ? this.comment(definition.title) : ''
@@ -179,7 +182,8 @@ export abstract class TemplateCommon {
     return this.pluginTemplate({ properties })
   }
 
-  axiosCall (path: string, method: MethodTypes, { requestBody, parameters, responses, summary }: Method) {
+  axiosCall (path: string, method: MethodTypes, methodSpec: Method) {
+    const { parameters, responses, summary } = methodSpec
     const pathParams:{[key:string]:Parameter|undefined} = _(path.match(/{.+?}/g))
       .map((x:string) => x.replace(/[{}]/g, '')).zipObject().value()
     let body: Parameter | undefined
@@ -193,9 +197,9 @@ export abstract class TemplateCommon {
       if (pos === 'body') { body = { name: '$body', valName: '$body', pos, type, required: true } }
       if (pos === 'path') { pathParams[name] = { name, valName, pos, type, required: true } }
     })
-    if (requestBody) {
+    if (('requestBody' in methodSpec) && methodSpec.requestBody) {
       const pos = '$body'
-      const { required = false, content } = requestBody
+      const { required = false, content } = methodSpec.requestBody
       const { schema } = content['application/json'] || {}
       if (schema) body = { name: pos, valName: pos, pos, type: this.typeDeep(schema), required }
     }
@@ -225,10 +229,7 @@ export abstract class TemplateCommon {
         axiosParams[noBody ? 1 : 2] = `{ ${[headers, params, '...' + $config.valName].filter(x => x).join(', ')} }`
       } else axiosParams[noBody ? 1 : 2] = $config.valName
     }
-    const schema:Types|{} = responses?.[200].content?.['application/json']?.schema || {}
-    let type = 'any'
-    if ('type' in schema) type = schema.type
-    if ('$ref' in schema) type = schema.$ref
+    const type = responses?.[200] ? this.getResponseType(responses[200]) : 'any'
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
     const code = `${this.params(params)}: Promise<${type}> => this.$axios.$${method}(${paramsString})`
     return summary ? code + `/*${summary}*/` : code

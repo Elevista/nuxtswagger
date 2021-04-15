@@ -60,11 +60,13 @@ export type Content = {
   }
 }
 
+export interface Response {
+  description?: string
+  content:Content
+}
+
 export interface Responses {
-  [statusCode: number]: {
-    description?: string
-    content:Content
-  }
+  [statusCode: number]: Response
 }
 
 export interface Method {
