@@ -9,12 +9,8 @@ export default class Template extends TemplateCommon {
     this.spec = spec
   }
 
-  importTypes () {
-    return this.importTypesBase(this.spec.definitions)
-  }
-
-  definitions () {
-    return this.definitionsBase(this.spec.definitions)
+  get schemas () {
+    return this.spec.definitions
   }
 
   getResponseType ({ schema }: Response): string {

@@ -17,9 +17,15 @@ enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', dele
 export type TemplateOptions = Options & { relTypePath: string }
 
 const _ = require('lodash')
-const typeMatch = 'type integer = number'
+const typeMatch = ['integer', 'long'].map(x => `type ${x} = number`).join('\n')
 const entriesCompare = <T>([a]:[string, T], [b]:[string, T]) => a.localeCompare(b)
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
+const genericVar = (i: number) => {
+  const arr = ['T', 'U', 'V']
+  return i < arr.length ? arr[i] : `T${i + 1 - arr.length}`
+}
+const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
+const escapeRegExp = (string:string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 export abstract class TemplateCommon {
   protected abstract spec:Spec
@@ -37,16 +43,16 @@ export abstract class TemplateCommon {
     this.fixRefDeep(spec)
   }
 
-  abstract definitions():string
-  abstract importTypes():string
+  abstract get schemas():Schemas
   abstract getResponseType(response:Response):string
 
   fixTypeName = (name: string) => name
     .replace(/^#\/(components\/schemas|definitions)\//, '')
-    .replace(/«/g, '_of_')
-    .replace(/[» ]+/g, '')
-    .replace(/[^0-9a-zA-Z_$]/g, '')
+    .replace(/«/g, '<').replace(/»/g, '>')
+    .replace(/List<(.+?)>/g, 'Array<$1>')
+    .replace(/[^0-9a-zA-Z_$<>, ]/g, '')
     .replace(/.+/, camelCase)
+    .replace(/[ ]+$/g, '')
 
   comment (comment?:string|number|boolean|object) {
     if (comment === undefined) { return '' }
@@ -113,16 +119,23 @@ export abstract class TemplateCommon {
     deep(spec)
   }
 
-  importTypesBase (schemas:Schemas) {
-    return `import { ${Object.keys(schemas).sort().join(', ')} } from '${this.relTypePath}'`
+  importTypes () {
+    const withoutGeneric = Object.keys(this.schemas).map(x => x.replace(/<.+>/, ''))
+    return `import { ${_.uniq(withoutGeneric).sort().join(', ')} } from '${this.relTypePath}'`
   }
 
-  definitionsBase (schemas:Schemas) {
+  definitions () {
     const array = (name:string, definition:TypeArray) => {
       const type = this.typeDeep(definition)
       return `export type ${name} = ${type}`
     }
-    const object = (name:string, { properties, required }:TypeObject) => {
+    const object = (rawName:string, { properties, required }:TypeObject) => {
+      const [name = rawName, genericString = ''] = rawName.match(/.+?<(.+)>/) || []
+      const generics = genericString
+        .replace(/<.+>/, x => x.replace(/,/g, '\x00'))
+        .split(',')
+        .map(x => x.replace(/\x00/g, ',')) // eslint-disable-line no-control-regex
+        .filter(x => x)
       const entries:Array<[string, Types]> = properties ? Object.entries(properties) : []
       const content = entries.map(([property, definition]) => {
         const type = this.typeDeep(definition)
@@ -133,23 +146,23 @@ export abstract class TemplateCommon {
         if (example.startsWith('\n')) comment += example
         else if (title && example) comment += example.replace('// ', '(') + ')'
         return `${property}${optional}: ${type}${comment}`
-      }).join('\n').replace(/^(.)/mg, '  $1')
-      return `export interface ${name} {\n${content}\n}`
+      }).join('\n').replace(/^./mg, '  $&')
+      let ret = `export interface ${name} {\n${content}\n}`
+      generics
+        .map((x, i) => [x, genericVar(i)])
+        .sort(([a], [b]) => b.length - a.length)
+        .forEach(([x, t]) => { ret = ret.replace(new RegExp(escapeRegExp(x), 'g'), t) })
+      return ret
     }
-    return this.definitionsTemplate({
-      definitions: Object.entries(schemas).sort(entriesCompare)
-        .map(([name, definition]) => {
-          if ('type' in definition) {
-            if (definition.type === 'array') return array(name, definition)
-            if (definition.type === 'object') return object(name, definition)
-          }
-          return undefined
-        }).filter(x => x).join('\n')
-    })
-  }
-
-  definitionsTemplate ({ definitions }: { definitions: string }) {
-    return `/* eslint-disable */\n${typeMatch}\n${definitions}\n`
+    const definitions = Object.entries(this.schemas).sort(entriesCompare)
+      .map(([name, definition]) => {
+        if ('type' in definition) {
+          if (definition.type === 'array') return array(name, definition)
+          if (definition.type === 'object') return object(name, definition)
+        }
+        return undefined
+      }).filter(x => x)
+    return [noInspect, typeMatch, ..._.uniq(definitions), ''].join('\n')
   }
 
   plugin () {
@@ -178,7 +191,7 @@ export abstract class TemplateCommon {
           return `${comment}\n${code}`.replace(/^/gm, indent)
         })
       return `${property} = ${code}\n`
-    }).join('\n').trim().replace(/^(.)/mg, '  $1')
+    }).join('\n').trim().replace(/^./mg, '  $&')
     return this.pluginTemplate({ properties })
   }
 
@@ -237,7 +250,7 @@ export abstract class TemplateCommon {
 
   pluginTemplate ({ properties }: { properties: string }) {
     return `
-/* eslint-disable */
+${noInspect}
 import { Plugin } from '@nuxt/types'
 import { AxiosRequestConfig } from 'axios'
 import { NuxtAxiosInstance } from '@nuxtjs/axios'

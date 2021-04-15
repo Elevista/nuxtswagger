@@ -1,4 +1,4 @@
-import { Spec, ParameterPositions, Response } from './Spec'
+import { Spec, Response } from './Spec'
 import { TemplateCommon, TemplateOptions } from '../../TemplateCommon'
 export default class Template extends TemplateCommon {
   protected spec:Spec
@@ -8,12 +8,8 @@ export default class Template extends TemplateCommon {
     this.spec = spec
   }
 
-  importTypes () {
-    return this.importTypesBase(this.spec.components.schemas)
-  }
-
-  definitions () {
-    return this.definitionsBase(this.spec.components.schemas)
+  get schemas () {
+    return this.spec.components.schemas
   }
 
   getResponseType ({ content }: Response): string {
