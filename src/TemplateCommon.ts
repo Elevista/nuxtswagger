@@ -2,21 +2,19 @@ import { Options } from './index'
 import { camelCase } from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
+import { LoDashStatic } from 'lodash'
 type ParameterPositions = v2.ParameterPositions| v3.ParameterPositions
 interface Parameter { type: string, required: boolean, name: string, valName:string, pos: ParameterPositions | '$body' | '$config' }
 type Response = v2.Response | v3.Response
-type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes
+type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes | {} | Boolean
 type Spec = v2.Spec | v3.Spec
 type Method = v2.Method | v3.Method
 type Schemas = v2.Definitions | v3.Schemas
-type Types = v2.Types | v3.Types
-type TypeArray = v2.TypeArray | v3.TypeArray
-type TypeObject = v2.TypeObject | v3.TypeObject
 
 enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
 export type TemplateOptions = Options & { relTypePath: string }
 
-const _ = require('lodash')
+const _:LoDashStatic = require('lodash')
 const typeMatch = ['integer', 'long'].map(x => `type ${x} = number`).join('\n')
 const entriesCompare = <T>([a]:[string, T], [b]:[string, T]) => a.localeCompare(b)
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
@@ -62,22 +60,42 @@ export abstract class TemplateCommon {
     return ['\n/**', ...lines.map(x => ` * ${x}`), ' */'].join('\n')
   }
 
-  typeDeep (typeObj:TypeDefs):string {
-    if ('schema' in typeObj) return this.typeDeep(typeObj.schema)
-    if ('$ref' in typeObj) return typeObj.$ref
-    if ('enum' in typeObj) {
-      return `(${typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | ')})`
+  makeComment (typeObj: Exclude<TypeDefs, boolean>) {
+    const title = ('title' in typeObj) ? this.comment(typeObj.title) : ''
+    const example = ('example' in typeObj) ? this.comment(typeObj.example) : ''
+    let comment = title
+    if (example.startsWith('\n')) comment += example
+    else if (title && example) comment += example.replace('// ', '(') + ')'
+    return comment
+  }
+
+  typeDeep (typeObj:TypeDefs, multiline = false, noComment = false):string {
+    if (typeof typeObj === 'boolean') return 'any'
+    const comment = noComment ? '' : this.makeComment(typeObj)
+    const typeDeep = (typeObj:TypeDefs, multiline = false) :string => {
+      if ('schema' in typeObj) return typeDeep(typeObj.schema, multiline)
+      if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
+      if ('enum' in typeObj) {
+        return `(${typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | ')})`
+      }
+      if (!('type' in typeObj)) return 'any'
+      if (typeObj.type === 'array') return `Array<${typeDeep(typeObj.items)}>`
+      if (typeObj.type === 'object') {
+        const { properties, additionalProperties, required = [] } = typeObj
+        const entries:[string, TypeDefs][] = Object.entries(properties || {})
+        if (additionalProperties) entries.push(['[key in any]', additionalProperties])
+        if (!entries.length) return 'any'
+        const items = entries.map(([name, value]) => {
+          const is = { required: false, ...value }
+          const optional = (is.required || required.includes(name)) ? '' : '?'
+          return `${name + optional}: ${this.typeDeep(value)}`
+        })
+        if (!multiline) return `{ ${items.join(', ')} }`
+        return `{\n${items.join('\n').replace(/^./gm, '  $&')}\n}`
+      }
+      return typeObj.type
     }
-    if (!('type' in typeObj)) return 'any'
-    if (typeObj.type === 'array') return `Array<${this.typeDeep(typeObj.items)}>`
-    if (typeObj.type === 'object') {
-      const { properties, additionalProperties: additional } = typeObj
-      return [
-        properties && Object.entries(properties).map(([name, value]) => `${name}: ${this.typeDeep(value)}`).join(', '),
-        additional && `[key in any]?: ${'type' in additional ? this.typeDeep(additional) : 'any'}`
-      ].filter(x => x).map(x => `{ ${x} }`).join(' & ') || 'any'
-    }
-    return typeObj.type
+    return typeDeep(typeObj, multiline) + comment
   }
 
   params (args: Parameter[]) {
@@ -125,44 +143,30 @@ export abstract class TemplateCommon {
   }
 
   definitions () {
-    const array = (name:string, definition:TypeArray) => {
-      const type = this.typeDeep(definition)
-      return `export type ${name} = ${type}`
-    }
-    const object = (rawName:string, { properties, required }:TypeObject) => {
-      const [name = rawName, genericString = ''] = rawName.match(/.+?<(.+)>/) || []
-      const generics = genericString
-        .replace(/<.+>/, x => x.replace(/,/g, '\x00'))
-        .split(',')
-        .map(x => x.replace(/\x00/g, ',')) // eslint-disable-line no-control-regex
-        .filter(x => x)
-      const entries:Array<[string, Types]> = properties ? Object.entries(properties) : []
-      const content = entries.map(([property, definition]) => {
-        const type = this.typeDeep(definition)
-        const optional = required?.includes(property) ? '' : '?'
-        const title = ('title' in definition) ? this.comment(definition.title) : ''
-        const example = ('example' in definition) ? this.comment(definition.example) : ''
-        let comment = title
-        if (example.startsWith('\n')) comment += example
-        else if (title && example) comment += example.replace('// ', '(') + ')'
-        return `${property}${optional}: ${type}${comment}`
-      }).join('\n').replace(/^./mg, '  $&')
-      let ret = `export interface ${name} {\n${content}\n}`
-      generics
-        .map((x, i) => [x, genericVar(i)])
-        .sort(([a], [b]) => b.length - a.length)
-        .forEach(([x, t]) => { ret = ret.replace(new RegExp(escapeRegExp(x), 'g'), t) })
-      return ret
-    }
-    const definitions = Object.entries(this.schemas).sort(entriesCompare)
-      .map(([name, definition]) => {
-        if ('type' in definition) {
-          if (definition.type === 'array') return array(name, definition)
-          if (definition.type === 'object') return object(name, definition)
+    const types = Object.entries(this.schemas).sort(entriesCompare)
+      .map(([rawName, type]) => {
+        const [, name = rawName, genericString = ''] = rawName.match(/(.+?)<(.+)>/) || []
+        const generics = genericString
+          .replace(/<.+>/, x => x.replace(/,/g, '\x00'))
+          .split(',')
+          .map(x => x.replace(/\x00/g, ',')) // eslint-disable-line no-control-regex
+          .filter(x => x)
+        const genericReplacer = (str:string) => {
+          generics
+            .map((x, i) => [x, genericVar(i)])
+            .sort(([a], [b]) => b.length - a.length)
+            .forEach(([x, t]) => { str = str.replace(new RegExp(escapeRegExp(x), 'g'), t) })
+          return str
         }
-        return undefined
-      }).filter(x => x)
-    return [noInspect, typeMatch, ..._.uniq(definitions), ''].join('\n')
+        return { name, rawName, genericReplacer, type }
+      })
+    const exports = Object.values(_.groupBy(types, x => x.name)).map(arr => {
+      const [{ rawName, genericReplacer, type }] = arr
+      const comments = arr.map(x => this.makeComment(x.type).trim()).filter(x => x)
+      const comment = comments.length ? comments.concat('').join('\n') : ''
+      return `${comment}export type ${genericReplacer(`${rawName} = ${this.typeDeep(type, true, true)}`)}`
+    })
+    return [noInspect, typeMatch, ...exports, ''].join('\n')
   }
 
   plugin () {
