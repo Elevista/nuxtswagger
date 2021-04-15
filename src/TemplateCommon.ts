@@ -248,10 +248,20 @@ export abstract class TemplateCommon {
         axiosParams[noBody ? 1 : 2] = `{ ${[headers, params, '...' + $config.valName].filter(x => x).join(', ')} }`
       } else axiosParams[noBody ? 1 : 2] = $config.valName
     }
-    const type = responses?.[200] ? this.getResponseType(responses[200]) : 'any'
+    const type = responses[200] ? this.getResponseType(responses[200]) : 'any'
+    const statusList = Object.keys(responses)
+    const description = statusList
+      .map(key => {
+        const [status, { description }] = [+key, responses[+key] || {}]
+        return description ? { status, description } : undefined
+      }).filter(exists)
+      .filter((x, _, { length }) => !(length === 1 && x.status === 200 && /^(OK|Successful)$/i.test(x.description)))
+      .map(x => `${x.status}: ${x.description}`)
+      .join('\n')
+    const comment = description ? `${summary}\n${description}` : summary
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
     const code = `${this.params(params)}: Promise<${type}> => this.$axios.$${method}(${paramsString})`
-    return code + '\u0000' + summary + '\u0000'
+    return code + '\u0000' + comment + '\u0000'
   }
 
   pluginTemplate ({ properties }: { properties: string }) {

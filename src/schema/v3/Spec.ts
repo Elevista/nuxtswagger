@@ -65,12 +65,11 @@ export interface Response {
   content:Content
 }
 
-export interface Responses {
-  [statusCode: number]: Response
+export type Responses = {
+  [statusCode in number]?: Response
 }
 
 export interface Method {
-  description?: string
   operationId: string
   responses: Responses
   summary?: string
@@ -83,7 +82,7 @@ export interface Method {
 }
 
 export type Methods = {
-  [method in MethodTypes]: Method
+  [method in MethodTypes]?: Method
 }
 
 export type ParameterCommon = {
