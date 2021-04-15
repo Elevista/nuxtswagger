@@ -1,3 +1,4 @@
+/* eslint-disable no-control-regex */
 import { Options } from './index'
 import { camelCase } from './utils'
 import * as v2 from './schema/v2/Spec'
@@ -149,7 +150,7 @@ export abstract class TemplateCommon {
         const generics = genericString
           .replace(/<.+>/, x => x.replace(/,/g, '\x00'))
           .split(',')
-          .map(x => x.replace(/\x00/g, ',')) // eslint-disable-line no-control-regex
+          .map(x => x.replace(/\x00/g, ','))
           .filter(x => x)
         const genericReplacer = (str:string) => {
           generics
@@ -190,7 +191,8 @@ export abstract class TemplateCommon {
     const properties = Object.entries(propTree).map(([property, child]) => {
       const code = JSON.stringify(child, null, '  ')
         .replace(/"/g, '')
-        .replace(/^([ ]+)(.+?)\/\*(.+?)\*\//gm, (_, indent, code, comment) => {
+        .replace(/^([ ]+)(.+)\\u0000(.*)\\u0000/gm, (_, indent, code, comment) => {
+          if (!comment) return indent + code
           comment = this.comment(comment.replace(/\\n/g, '\n')).trim()
           return `${comment}\n${code}`.replace(/^/gm, indent)
         })
@@ -200,7 +202,7 @@ export abstract class TemplateCommon {
   }
 
   axiosCall (path: string, method: MethodTypes, methodSpec: Method) {
-    const { parameters, responses, summary } = methodSpec
+    const { parameters, responses, summary = '' } = methodSpec
     const pathParams:{[key:string]:Parameter|undefined} = _(path.match(/{.+?}/g))
       .map((x:string) => x.replace(/[{}]/g, '')).zipObject().value()
     let body: Parameter | undefined
@@ -249,7 +251,7 @@ export abstract class TemplateCommon {
     const type = responses?.[200] ? this.getResponseType(responses[200]) : 'any'
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
     const code = `${this.params(params)}: Promise<${type}> => this.$axios.$${method}(${paramsString})`
-    return summary ? code + `/*${summary}*/` : code
+    return code + '\u0000' + summary + '\u0000'
   }
 
   pluginTemplate ({ properties }: { properties: string }) {
