@@ -1,7 +1,7 @@
 /* eslint-disable no-use-before-define */
 type PrimitiveTypes = 'string' | 'number' | 'integer' | 'boolean'
 type TypeNames = PrimitiveTypes | 'array' | 'object'
-export type ParameterPositions = 'header' | 'body' | 'path' | 'query' | 'cookie'
+export type ParameterIn = 'header' | 'body' | 'path' | 'query' | 'cookie'
 export type Formats = 'date' | 'date-time' | 'password' | 'byte' | 'binary'
 export enum MethodTypes{get='get', post='post', put='put', patch='patch', delete='delete', head='head', options='options'}
 export interface Ref {
@@ -75,7 +75,7 @@ export type Methods = {
 }
 
 export type ParameterCommon = {
-  in: ParameterPositions
+  in: ParameterIn
   name: string
   required?: true
   description?: string

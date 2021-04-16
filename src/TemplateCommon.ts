@@ -4,8 +4,8 @@ import { camelCase } from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
 import { LoDashStatic } from 'lodash'
-type ParameterPositions = v2.ParameterPositions| v3.ParameterPositions
-interface Parameter { type: string, required: boolean, name: string, valName:string, pos: ParameterPositions | '$body' | '$config' }
+type ParameterIn = v2.ParameterIn| v3.ParameterIn | '$body' | '$config'
+interface Parameter { type: string, required: boolean, name: string, valName:string, pos: ParameterIn }
 type Response = v2.Response | v3.Response
 type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes | {} | Boolean
 type Spec = v2.Spec | v3.Spec
@@ -19,12 +19,13 @@ const _:LoDashStatic = require('lodash')
 const typeMatch = ['integer', 'long'].map(x => `type ${x} = number`).join('\n')
 const entriesCompare = <T>([a]:[string, T], [b]:[string, T]) => a.localeCompare(b)
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
+const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
+const escapeRegExp = (string:string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+const replaceAll = (string: string, searchValue: string, replaceValue: string) => string.replace(new RegExp(escapeRegExp(searchValue), 'g'), replaceValue)
 const genericVar = (i: number) => {
   const arr = ['T', 'U', 'V']
   return i < arr.length ? arr[i] : `T${i + 1 - arr.length}`
 }
-const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
-const escapeRegExp = (string:string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 export abstract class TemplateCommon {
   protected abstract spec:Spec
@@ -99,27 +100,28 @@ export abstract class TemplateCommon {
     return typeDeep(typeObj, multiline) + comment
   }
 
-  params (args: Parameter[]) {
-    const arr = () => {
-      const { path = [], body = [], $config, ...others }: { [_: string]: Parameter[] | undefined } = _.groupBy(args, 'pos')
-      const map = (args:Parameter[]) => {
-        const [names, requires, optionals]:[string[], string[], string[]] = [[], [], []]
-        args.forEach(({ valName: name, type, required }) => {
-          const optional = required ? '' : '?'
-          const res = `${name}${optional}: ${type}`
-          required ? requires.push(res) : optionals.push(res)
-          names.push(name)
-        })
-        return [names, requires, optionals]
-      }
-      if ((args.length - (path.length + body.length)) < 5) return map(args).slice(-2).flat()
-      const [requires, optionals] = map([...path, ...body]).slice(-2)
-      const [names, ...rest] = map(Object.values(others).filter(exists).flat())
-      let obj = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} }`
-      if ($config) obj += ', ' + map($config).slice(1).flat().join(', ')
-      return [requires, obj, optionals].flat()
+  toArgs (parameters: Parameter[]) {
+    const classify = (args:Parameter[]) => {
+      const [names, requires, optionals] = [[], [], []] as string[][]
+      args.forEach(({ valName: name, type, required }) => {
+        const optional = required ? '' : '?'
+        const arg = `${name}${optional}: ${type}`
+        required ? requires.push(arg) : optionals.push(arg)
+        names.push(name)
+      })
+      return [names, requires, optionals]
     }
-    return `(${arr().join(', ')})`
+    const toArgs = (parameters:Parameter[]) => {
+      const { path = [], body = [], $config, ...others } = _.groupBy(parameters, x => x.pos)
+      if ((parameters.length - (path.length + body.length)) < 5) return classify(parameters).slice(-2).flat()
+      const [, requires, optionals] = classify([...path, ...body])
+      const pathBodyArgs = { requires, optionals }
+      const [names, ...rest] = classify(Object.values(others).filter(exists).flat())
+      let restArg = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} }`
+      if ($config) restArg += ', ' + classify($config).slice(1).flat().join(', ')
+      return [pathBodyArgs.requires, restArg, pathBodyArgs.optionals].flat()
+    }
+    return toArgs(parameters).join(', ')
   }
 
   fixKeys<T extends object> (o:T):T {
@@ -147,16 +149,16 @@ export abstract class TemplateCommon {
     const types = Object.entries(this.schemas).sort(entriesCompare)
       .map(([rawName, type]) => {
         const [, name = rawName, genericString = ''] = rawName.match(/(.+?)<(.+)>/) || []
-        const generics = genericString
-          .replace(/<.+>/, x => x.replace(/,/g, '\x00'))
-          .split(',')
-          .map(x => x.replace(/\x00/g, ','))
-          .filter(x => x)
         const genericReplacer = (str:string) => {
+          const generics = genericString
+            .replace(/<.+>/, x => x.replace(/,/g, '\x00'))
+            .split(',')
+            .map(x => x.replace(/\x00/g, ','))
+            .filter(x => x)
           generics
             .map((x, i) => [x, genericVar(i)])
-            .sort(([a], [b]) => b.length - a.length)
-            .forEach(([x, t]) => { str = str.replace(new RegExp(escapeRegExp(x), 'g'), t) })
+            .sort(([a], [b]) => b.length - a.length) // length desc
+            .forEach(([x, t]) => { str = replaceAll(str, x, t) })
           return str
         }
         return { name, rawName, genericReplacer, type }
@@ -203,10 +205,10 @@ export abstract class TemplateCommon {
 
   axiosCall (path: string, method: MethodTypes, methodSpec: Method) {
     const { parameters, responses, summary = '' } = methodSpec
-    const pathParams:{[key:string]:Parameter|undefined} = _(path.match(/{.+?}/g))
-      .map((x:string) => x.replace(/[{}]/g, '')).zipObject().value()
+    const pathParams: { [key in string]?: Parameter } = _(path.match(/{.+?}/g))
+      .map((x) => x.replace(/[{}]/g, '')).zipObject().value()
     let body: Parameter | undefined
-    const [headers, query]: [{ [x: string]: Parameter }, { [x: string]: Parameter }] = [{}, {}]
+    const [headers, query]: { [x in string]: Parameter }[] = [{}, {}]
     parameters?.forEach((parameter) => {
       const type = this.typeDeep(parameter)
       const { in: pos, required = false, name } = parameter
@@ -222,10 +224,7 @@ export abstract class TemplateCommon {
       const { schema } = content['application/json'] || {}
       if (schema) body = { name: pos, valName: pos, pos, type: this.typeDeep(schema), required }
     }
-    const arrOf = {
-      queries: Object.values(query),
-      headers: Object.values(headers)
-    }
+    const arrOf = { queries: Object.values(query), headers: Object.values(headers) }
     const params = Object.values(pathParams).filter((x): x is Parameter => !!x)
     params.push(...arrOf.queries)
     if (body) { params.push(body) }
@@ -260,7 +259,7 @@ export abstract class TemplateCommon {
       .join('\n')
     const comment = description ? `${summary}\n${description}` : summary
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
-    const code = `${this.params(params)}: Promise<${type}> => this.$axios.$${method}(${paramsString})`
+    const code = `(${this.toArgs(params)}): Promise<${type}> => this.$axios.$${method}(${paramsString})`
     return code + '\u0000' + comment + '\u0000'
   }
 
