@@ -54,28 +54,35 @@ export abstract class TemplateCommon {
     .replace(/.+/, camelCase)
     .replace(/[ ]+$/g, '')
 
-  comment (comment?:string|number|boolean|object) {
+  comment (comment?:string|number|boolean|object, onlyText = false) {
     if (comment === undefined) { return '' }
     if (comment === Object(comment)) comment = JSON.stringify(comment)
-    const lines = comment.toString().trim().split('\n')
+    const string = comment.toString().trim()
+    if (onlyText) return string
+    const lines = string.split('\n')
     if (lines.length === 1) { return ` // ${lines[0]}` }
     return ['\n/**', ...lines.map(x => ` * ${x}`), ' */'].join('\n')
   }
 
-  makeComment (typeObj: Exclude<TypeDefs, boolean>) {
-    const title = ('title' in typeObj) ? this.comment(typeObj.title) : ''
-    const example = ('example' in typeObj) ? this.comment(typeObj.example) : ''
-    let comment = title
-    if (example.startsWith('\n')) comment += example
-    else if (title && example) comment += example.replace('// ', '(') + ')'
-    return comment
+  makeComment (typeObj: Exclude<TypeDefs, boolean>, onlyText = false) {
+    const title = 'title' in typeObj ? this.comment(typeObj.title, true) : ''
+    const description = 'description' in typeObj ? this.comment(typeObj.description, true) : ''
+    const example = 'example' in typeObj ? this.comment(typeObj.example, true) : ''
+
+    let comment: string
+    if (title && description) comment = title + (/\n/.test(description) ? '\n' : ' - ') + description
+    else comment = title + description
+    if (example) comment += (/\n/.test(comment + example)) ? `\n${example}` : ` (${example})`
+    return comment && this.comment(comment, onlyText)
   }
 
-  typeDeep (typeObj:TypeDefs, multiline = false, noComment = false):string {
+  typeDeep (typeObj:TypeDefs, maxIndent = -1, noComment = false):string {
     if (typeof typeObj === 'boolean') return 'any'
-    const comment = noComment ? '' : this.makeComment(typeObj)
-    const typeDeep = (typeObj:TypeDefs, multiline = false) :string => {
-      if ('schema' in typeObj) return typeDeep(typeObj.schema, multiline)
+    const canComment = maxIndent >= 0 && !noComment
+    const indentProps = maxIndent > 0
+    const comment = canComment ? this.makeComment(typeObj) : ''
+    const typeDeep = (typeObj:TypeDefs) :string => {
+      if ('schema' in typeObj) return typeDeep(typeObj.schema)
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
       if ('enum' in typeObj) {
         return `(${typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | ')})`
@@ -90,14 +97,14 @@ export abstract class TemplateCommon {
         const items = entries.map(([name, value]) => {
           const is = { required: false, ...value }
           const optional = (is.required || required.includes(name)) ? '' : '?'
-          return `${name + optional}: ${this.typeDeep(value)}`
+          return `${name + optional}: ${this.typeDeep(value, maxIndent - 1)}`
         })
-        if (!multiline) return `{ ${items.join(', ')} }`
+        if (!indentProps) return `{ ${items.join(', ')} }`
         return `{\n${items.join('\n').replace(/^./gm, '  $&')}\n}`
       }
       return typeObj.type
     }
-    return typeDeep(typeObj, multiline) + comment
+    return typeDeep(typeObj) + comment
   }
 
   toArgs (parameters: Parameter[]) {
@@ -165,9 +172,9 @@ export abstract class TemplateCommon {
       })
     const exports = Object.values(_.groupBy(types, x => x.name)).map(arr => {
       const [{ rawName, genericReplacer, type }] = arr
-      const comments = arr.map(x => this.makeComment(x.type).trim()).filter(x => x)
-      const comment = comments.length ? comments.concat('').join('\n') : ''
-      return `${comment}export type ${genericReplacer(`${rawName} = ${this.typeDeep(type, true, true)}`)}`
+      const comments = arr.map(x => this.makeComment(x.type, true)).filter(x => x)
+      const comment = comments.length ? this.comment(comments.join('\n')).trim() + '\n' : ''
+      return `${comment}export type ${genericReplacer(`${rawName} = ${this.typeDeep(type, 1, true)}`)}`
     })
     return [noInspect, typeMatch, ...exports, ''].join('\n')
   }
