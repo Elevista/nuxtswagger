@@ -189,7 +189,7 @@ export abstract class TemplateCommon {
         .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()) // foo_bar => fooBar
         .replace(/{(\w+)}/g, '_$1') // {foo} => _foo
         .replace(/\/$/, '/$root')
-        .split(/\//).slice(1)
+        .split('/').slice(1)
       if (/^v\d+$/.test(keyPath[0])) keyPath.push(keyPath.shift() || '')
       Object.entries(methods).sort(entriesCompare).forEach(([key, method]) => {
         if (!(key in MethodTypes)) return
@@ -199,10 +199,10 @@ export abstract class TemplateCommon {
     })
     const properties = Object.entries(propTree).map(([property, child]) => {
       const code = JSON.stringify(child, null, '  ')
-        .replace(/"/g, '')
-        .replace(/^([ ]+)(.+?)\/\*(.+?)\*\//gm, (_, indent, code, comment) => {
-          comment = this.comment(comment.replace(/\\n/g, '\n')).trim()
-          return `${comment}\n${code}`.replace(/^/gm, indent)
+        .replace(/".+?"/g, JSON.parse)
+        .replace(/^([ ]*)(.*)\/\*((.|\n)+?)\*\//gm, (_, indent, code, comment) => {
+          const prependComment = [this.comment(comment), code].join('\n')
+          return prependComment.trim().replace(/^/gm, indent)
         })
       return `${property} = ${code}\n`
     }).join('\n').trim().replace(/^./mg, '  $&')
