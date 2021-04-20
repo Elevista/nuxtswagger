@@ -200,8 +200,7 @@ export abstract class TemplateCommon {
     const properties = Object.entries(propTree).map(([property, child]) => {
       const code = JSON.stringify(child, null, '  ')
         .replace(/"/g, '')
-        .replace(/^([ ]+)(.+)\\u0000(.*)\\u0000/gm, (_, indent, code, comment) => {
-          if (!comment) return indent + code
+        .replace(/^([ ]+)(.+?)\/\*(.+?)\*\//gm, (_, indent, code, comment) => {
           comment = this.comment(comment.replace(/\\n/g, '\n')).trim()
           return `${comment}\n${code}`.replace(/^/gm, indent)
         })
@@ -267,7 +266,7 @@ export abstract class TemplateCommon {
     const comment = description ? `${summary}\n${description}` : summary
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
     const code = `(${this.toArgs(params)}): Promise<${type}> => this.$axios.$${method}(${paramsString})`
-    return code + '\u0000' + comment + '\u0000'
+    return comment ? code + `/*${comment}*/` : code
   }
 
   pluginTemplate ({ properties }: { properties: string }) {
