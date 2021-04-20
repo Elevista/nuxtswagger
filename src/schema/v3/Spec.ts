@@ -1,7 +1,7 @@
 /* eslint-disable no-use-before-define */
 type PrimitiveTypes = 'string' | 'number' | 'integer' | 'boolean'
 type TypeNames = PrimitiveTypes | 'array' | 'object'
-export type ParameterPositions = 'query'| 'header'| 'path' | 'cookie'
+export type ParameterIn = 'query'| 'header'| 'path' | 'cookie'
 export type Formats = 'date' | 'date-time' | 'password' | 'byte' | 'binary'
 export enum MethodTypes{get='get', post='post', put='put', patch='patch', delete='delete', head='head', options='options'}
 export interface Ref {
@@ -28,6 +28,7 @@ export interface TypeArray extends TypeProto {
 
 export interface TypeObject extends TypeProto<object> {
   type: 'object',
+  additionalProperties?: Boolean|Types|{}
   properties?: { [propertyName: string]: Types }
   required?: Array<string>
 }
@@ -59,15 +60,16 @@ export type Content = {
   }
 }
 
-export interface Responses {
-  [statusCode: number]: {
-    description?: string
-    content:Content
-  }
+export interface Response {
+  description?: string
+  content:Content
+}
+
+export type Responses = {
+  [statusCode in number]?: Response
 }
 
 export interface Method {
-  description?: string
   operationId: string
   responses: Responses
   summary?: string
@@ -80,57 +82,27 @@ export interface Method {
 }
 
 export type Methods = {
-  [method in MethodTypes]: Method
+  [method in MethodTypes]?: Method
 }
 
-export interface ParameterProto<T=string> extends TypeProto<T>{
-  in: ParameterPositions
+export type ParameterCommon = {
+  in: ParameterIn
   name: string
   required?: true
   description?: string
 }
 
-export interface ParameterSchema extends ParameterProto{
-  schema: Ref
-}
-
-export interface ParameterEnum extends ParameterProto {
-  type: 'string'
-  enum: Array<string>
-}
-
-export interface ParameterArray extends ParameterProto {
-  type: 'array',
-  items: Types
-}
-
-export interface ParameterObject extends ParameterProto {
-  type: 'object',
-  properties?: { [propertyName: string]: Types }
-}
-
-export interface ParameterFormat extends ParameterProto {
-  type: 'string'
-  format: Formats
-}
-
-export interface ParameterBoolean extends ParameterProto<boolean> {
-  type: 'boolean'
-}
-
-export interface ParameterString extends ParameterProto {
-  type: 'string'
-}
-
-export interface ParameterNumber extends ParameterProto<number> {
-  type: ('number' | 'integer')
-}
-
+export type ParameterSchema = ParameterCommon & { schema: Ref }
+export type ParameterEnum = ParameterCommon & TypeEnum
+export type ParameterArray = ParameterCommon & TypeArray
+export type ParameterObject = ParameterCommon & TypeObject
+export type ParameterFormat = ParameterCommon & TypeFormat
+export type ParameterBoolean = ParameterCommon & TypeBoolean
+export type ParameterString = ParameterCommon & TypeString
+export type ParameterNumber = ParameterCommon & TypeNumber
 export type ParameterTypes = (ParameterEnum | ParameterArray | ParameterObject | ParameterFormat | ParameterBoolean | ParameterString | ParameterNumber | ParameterSchema)
 
-export interface Schemas {
-  [schema: string]: Types
-}
+export type Schemas = { [schema: string]: Types }
 
 export interface Paths {
   [path: string]: Methods
