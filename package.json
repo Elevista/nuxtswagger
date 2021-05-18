@@ -1,6 +1,6 @@
 {
   "name": "nuxtswagger",
-  "version": "0.0.1-alpha.4",
+  "version": "1.0.0",
   "description": "Nuxt-TS-Swagger plugin generator CLI",
   "bin": {
     "nuxtswagger": "dist/index.js"
@@ -15,6 +15,9 @@
     "nuxt",
     "typescript",
     "swagger"
+  ],
+  "files": [
+    "dist"
   ],
   "author": "Elevista",
   "license": "ISC",

@@ -43,10 +43,10 @@ export abstract class TemplateCommon {
     this.fixRefDeep(spec)
   }
 
-  abstract get schemas():Schemas
-  abstract getResponseType(response:Response):string
+  protected abstract get schemas():Schemas
+  protected abstract getResponseType(response:Response):string
 
-  fixTypeName = (name: string) => name
+  protected fixTypeName = (name: string) => name
     .replace(/^#\/(components\/schemas|definitions)\//, '')
     .replace(/«/g, '<').replace(/»/g, '>')
     .replace(/List<(.+?)>/g, 'Array<$1>')
@@ -54,7 +54,7 @@ export abstract class TemplateCommon {
     .replace(/.+/, camelCase)
     .replace(/[ ]+$/g, '')
 
-  comment (comment?:string|number|boolean|object, onlyText = false) {
+  protected comment (comment?:string|number|boolean|object, onlyText = false) {
     if (comment === undefined) { return '' }
     if (comment === Object(comment)) comment = JSON.stringify(comment)
     const string = comment.toString().trim()
@@ -64,7 +64,7 @@ export abstract class TemplateCommon {
     return ['\n/**', ...lines.map(x => ` * ${x}`), ' */'].join('\n')
   }
 
-  makeComment (typeObj: Exclude<TypeDefs, boolean>, onlyText = false) {
+  protected makeComment (typeObj: Exclude<TypeDefs, boolean>, onlyText = false) {
     const title = 'title' in typeObj ? this.comment(typeObj.title, true) : ''
     const description = 'description' in typeObj ? this.comment(typeObj.description, true) : ''
     const example = 'example' in typeObj ? this.comment(typeObj.example, true) : ''
@@ -76,7 +76,7 @@ export abstract class TemplateCommon {
     return comment && this.comment(comment, onlyText)
   }
 
-  typeDeep (typeObj:TypeDefs, maxIndent = -1, noComment = false):string {
+  protected typeDeep (typeObj:TypeDefs, maxIndent = -1, noComment = false):string {
     if (typeof typeObj === 'boolean') return 'any'
     const canComment = maxIndent >= 0 && !noComment
     const indentProps = maxIndent > 0
@@ -107,37 +107,35 @@ export abstract class TemplateCommon {
     return typeDeep(typeObj) + comment
   }
 
-  toArgs (parameters: Parameter[]) {
-    const classify = (args:Parameter[]) => {
-      const [names, requires, optionals] = [[], [], []] as string[][]
-      args.forEach(({ valName: name, type, required }) => {
-        const optional = required ? '' : '?'
-        const arg = `${name}${optional}: ${type}`
-        required ? requires.push(arg) : optionals.push(arg)
-        names.push(name)
+  protected toArgs (parameters: Parameter[]) {
+    const classify = (params:Parameter[] = []) => {
+      const [names, all, required, optional] = [[], [], [], []] as string[][]
+      params.forEach((p) => {
+        names.push(p.valName)
+        const type = `${p.valName}${p.required ? '' : '?'}: ${p.type}`
+        all.push(type)
+        p.required ? required.push(type) : optional.push(type)
       })
-      return [names, requires, optionals]
+      return { names, types: { all, required, optional, ordered: [...required, ...optional] } }
     }
     const toArgs = (parameters:Parameter[]) => {
       const { path = [], body = [], $config, ...others } = _.groupBy(parameters, x => x.pos)
-      if ((parameters.length - (path.length + body.length)) < 5) return classify(parameters).slice(-2).flat()
-      const [, requires, optionals] = classify([...path, ...body])
-      const pathBodyArgs = { requires, optionals }
-      const [names, ...rest] = classify(Object.values(others).filter(exists).flat())
-      let restArg = `{ ${names.join(', ')} }: { ${rest.flat().join(', ')} }`
-      if ($config) restArg += ', ' + classify($config).slice(1).flat().join(', ')
-      return [pathBodyArgs.requires, restArg, pathBodyArgs.optionals].flat()
+      if ((parameters.length - (path.length + body.length)) < 5) return classify(parameters).types.ordered
+      const pathBody = classify([...path, ...body]).types.all // should be no optional type in path and body
+      const { names, types } = classify(Object.values(others).flat())
+      const objectArg = `{ ${names.join(', ')} }: { ${types.all.join(', ')} }`
+      return [pathBody, objectArg, classify($config).types.all].flat()
     }
     return toArgs(parameters).join(', ')
   }
 
-  fixKeys<T extends object> (o:T):T {
+  protected fixKeys<T extends object> (o:T):T {
     const ret:any = {}
     Object.entries(o).forEach(([key, value]) => { ret[this.fixTypeName(key)] = value })
     return ret
   }
 
-  fixRefDeep (spec:Spec) {
+  protected fixRefDeep (spec:Spec) {
     const deep = (o:any) => {
       if (!(o instanceof Object)) return
       if ('$ref' in o) o.$ref = this.fixTypeName(o.$ref)
@@ -147,12 +145,12 @@ export abstract class TemplateCommon {
     deep(spec)
   }
 
-  importTypes () {
+  protected importTypes () {
     const withoutGeneric = Object.keys(this.schemas).map(x => x.replace(/<.+>/, ''))
     return `import { ${_.uniq(withoutGeneric).sort().join(', ')} } from '${this.relTypePath}'`
   }
 
-  definitions () {
+  public definitions () {
     const types = Object.entries(this.schemas).sort(entriesCompare)
       .map(([rawName, type]) => {
         const [, name = rawName, genericString = ''] = rawName.match(/(.+?)<(.+)>/) || []
@@ -179,7 +177,7 @@ export abstract class TemplateCommon {
     return [noInspect, typeMatch, ...exports, ''].join('\n')
   }
 
-  plugin () {
+  public plugin () {
     const { paths } = this.spec
     const propTree:{[paths:string]:string} = {}
     const base = this.basePath
@@ -189,7 +187,7 @@ export abstract class TemplateCommon {
         .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()) // foo_bar => fooBar
         .replace(/{(\w+)}/g, '_$1') // {foo} => _foo
         .replace(/\/$/, '/$root')
-        .split(/\//).slice(1)
+        .split('/').slice(1)
       if (/^v\d+$/.test(keyPath[0])) keyPath.push(keyPath.shift() || '')
       Object.entries(methods).sort(entriesCompare).forEach(([key, method]) => {
         if (!(key in MethodTypes)) return
@@ -199,18 +197,17 @@ export abstract class TemplateCommon {
     })
     const properties = Object.entries(propTree).map(([property, child]) => {
       const code = JSON.stringify(child, null, '  ')
-        .replace(/"/g, '')
-        .replace(/^([ ]+)(.+)\\u0000(.*)\\u0000/gm, (_, indent, code, comment) => {
-          if (!comment) return indent + code
-          comment = this.comment(comment.replace(/\\n/g, '\n')).trim()
-          return `${comment}\n${code}`.replace(/^/gm, indent)
+        .replace(/".+?"/g, JSON.parse)
+        .replace(/^([ ]*)(.*)\/\*((.|\n)+?)\*\//gm, (_, indent, code, comment) => {
+          const prependComment = [this.comment(comment), code].join('\n')
+          return prependComment.trim().replace(/^/gm, indent)
         })
       return `${property} = ${code}\n`
     }).join('\n').trim().replace(/^./mg, '  $&')
     return this.pluginTemplate({ properties })
   }
 
-  axiosCall (path: string, method: MethodTypes, methodSpec: Method) {
+  protected axiosCall (path: string, method: MethodTypes, methodSpec: Method) {
     const { parameters, responses, summary = '' } = methodSpec
     const pathParams: { [key in string]?: Parameter } = _(path.match(/{.+?}/g))
       .map((x) => x.replace(/[{}]/g, '')).zipObject().value()
@@ -267,10 +264,10 @@ export abstract class TemplateCommon {
     const comment = description ? `${summary}\n${description}` : summary
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
     const code = `(${this.toArgs(params)}): Promise<${type}> => this.$axios.$${method}(${paramsString})`
-    return code + '\u0000' + comment + '\u0000'
+    return comment ? code + `/*${comment}*/` : code
   }
 
-  pluginTemplate ({ properties }: { properties: string }) {
+  protected pluginTemplate ({ properties }: { properties: string }) {
     return `
 ${noInspect}
 import { Plugin } from '@nuxt/types'
