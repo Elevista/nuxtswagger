@@ -16,6 +16,9 @@
     "typescript",
     "swagger"
   ],
+  "files": [
+    "dist"
+  ],
   "author": "Elevista",
   "license": "ISC",
   "dependencies": {
