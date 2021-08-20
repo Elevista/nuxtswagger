@@ -285,6 +285,7 @@ class ${this.className} {
 ${properties}
 }
 declare module '@nuxt/types' {
+  interface Context { $${this.inject}: ${this.className} }
   interface NuxtAppOptions { $${this.inject}: ${this.className} }
 }
 declare module 'vue/types/vue' {
