@@ -28,7 +28,7 @@ module.exports = {
 in component
 ```js
 export default {
-  async asyncData ({ app: { $api } }) {
+  async asyncData ({ $api }) {
     return { foo: await $api.foo.get() }
   },
   data () { return { bar: undefined } },
