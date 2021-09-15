@@ -64,6 +64,7 @@ const run = async function () {
   const { argv }:{argv:Argv} = yargs(hideBin(process.argv))
   const options = defaultOptions(_.defaults(argvToOptions(argv), optionsFromJson()))
   if (!options.src) throw Error('No JSON path provided')
+  console.log(c.bold(c.green('Nux') + c.bgBlue.white('TS') + c.cyan('wagger')), c.gray(`(v${packageJson.version})`))
   const spec = await fetchSpec(options.src)
   makeDirs(options)
 
@@ -74,9 +75,9 @@ const run = async function () {
   if (('openapi' in spec) && parseInt(spec.openapi) === 3) template = new V3(spec, templateOptions)
 
   if (!template) throw Error('not support')
-  console.log(c.green('  create'), pluginPath)
+  console.log(c.green(' ✔ create  '), pluginPath)
   fs.writeFileSync(pluginPath, template.plugin())
-  console.log(c.blue('  create'), options.typePath)
+  console.log(c.blue(' ✔ create  '), options.typePath)
   fs.writeFileSync(options.typePath, template.definitions())
 }
 run()
