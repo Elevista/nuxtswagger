@@ -13,7 +13,7 @@ export default class Template extends TemplateCommon {
   }
 
   getResponseType ({ content }: Response): string {
-    const schema = content['application/json']?.schema
+    const schema = content?.['application/json']?.schema
     if (!schema) return 'any'
     return this.typeDeep(schema)
   }
