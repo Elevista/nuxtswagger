@@ -4,7 +4,7 @@ import V3 from './schema/v3/Template'
 import fetchSpec from './fetchSpec'
 import { join } from 'path'
 import { LoDashStatic } from 'lodash'
-const packageJson = require('../package.json')
+const { version } = require('../package.json')
 const _:LoDashStatic = require('lodash')
 const fs = require('fs')
 const mkdirp = require('mkdirp')
@@ -64,7 +64,7 @@ const run = async function () {
   const { argv }:{argv:Argv} = yargs(hideBin(process.argv))
   const options = defaultOptions(_.defaults(argvToOptions(argv), optionsFromJson()))
   if (!options.src) throw Error('No JSON path provided')
-  console.log(c.bold(c.green('Nux') + c.bgBlue.white('TS') + c.cyan('wagger')), c.gray(`(v${packageJson.version})`))
+  console.log(c.bold(c.green('Nux') + c.bgBlue.white('TS') + c.cyan('wagger')), c.gray(`(v${version})`))
   const spec = await fetchSpec(options.src)
   makeDirs(options)
 
