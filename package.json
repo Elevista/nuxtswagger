@@ -8,8 +8,8 @@
   "scripts": {
     "alpha": "npm version prerelease --preid=alpha",
     "build": "tsc",
-    "lint": "eslint --format ./node_modules/eslint-friendly-formatter --ext .ts,.js .",
-    "lint:fix": "eslint --format ./node_modules/eslint-friendly-formatter --ext .ts,.js . --fix"
+    "lint": "eslint --format friendly --ext .ts,.js .",
+    "lint:fix": "eslint --format friendly --ext .ts,.js . --fix"
   },
   "keywords": [
     "nuxt",
@@ -49,8 +49,8 @@
     "@typescript-eslint/eslint-plugin": "^4.7.0",
     "@typescript-eslint/parser": "^4.7.0",
     "eslint": "^7.13.0",
-    "eslint-friendly-formatter": "^4.0.1",
     "husky": "^4.3.0",
+    "eslint-formatter-friendly": "^7.0.0",
     "standard": "^16.0.1",
     "ts-node": "^10.2.1",
     "typescript": "^4.0.5",
