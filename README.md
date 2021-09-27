@@ -28,7 +28,7 @@ module.exports = {
 in component
 ```js
 export default {
-  async asyncData ({ app: { $api } }) {
+  async asyncData ({ $api }) {
     return { foo: await $api.foo.get() }
   },
   data () { return { bar: undefined } },
@@ -38,18 +38,19 @@ export default {
 
 ## Options
 ```sh
-nuxtswagger argument1 --option1=value1 --option2=value2
+nuxtswagger argument1 --option1 value1 --option2 value2
 ```
-	
+
 | option | description | default | example |
 | --- | --- | --- | --- |
-| first argument | Swagger schema JSON path | (required) | `http://..` or `./foo/swagger.json`  |
+| (first argument) | Swagger schema JSON path | (required) | `http://..` or `./foo/swagger.json`  |
 | `src` | same as first argument | first argument | same as above  |
 | `plugins-dir` | Nuxt plugins directory | `plugins` |  |
 | `plugin-name` | Name for generated plugin | `api` |  |
 | `inject` | Nuxt plugin inject key | `{plugin-name}` |  |
 | `type-path` | Path for scheme type file | `{plugins-dir}/{plugin-name}/{types.ts}` | `./types/swagger.d.ts` |
 | `base-path` | base path | `/v1` | `/v2` |
+| `skip-header` | Ignore parameter in header | `false` | `true` |
 
 ### Set options using `package.json`
 ```json

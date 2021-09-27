@@ -62,7 +62,7 @@ export type Content = {
 
 export interface Response {
   description?: string
-  content:Content
+  content?: Content
 }
 
 export type Responses = {
