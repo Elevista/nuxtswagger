@@ -74,9 +74,10 @@ export interface Method {
   responses: Responses
   summary?: string
   parameters?: Array<ParameterTypes>
-  requestBody?:{
+  requestBody?: {
+    description?: string
     required?: boolean
-    content:Content
+    content: Content
   }
   tags: Array<string>
 }
