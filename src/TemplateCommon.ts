@@ -4,8 +4,8 @@ import { camelCase } from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
 import { LoDashStatic } from 'lodash'
-type ParameterIn = v2.ParameterIn | v3.ParameterIn | '$body' | '$config'
-interface Parameter { type: string, required: boolean, name: string, valName: string, pos: ParameterIn }
+type ParameterIn = v2.ParameterIn | v3.ParameterIn | 'body' | '$config'
+interface Parameter { type: string, required: boolean, name: string, valName: string, pos: ParameterIn, description: string }
 type Response = v2.Response | v3.Response
 type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes | {} | Boolean
 type Spec = v2.Spec | v3.Spec
@@ -19,7 +19,7 @@ export type TemplateOptions = Options & { relTypePath: string }
 const _: LoDashStatic = require('lodash')
 const typeMatch = ['integer', 'long'].map(x => `type ${x} = number`).join('\n')
 const entriesCompare = <T>([a]: [string, T], [b]: [string, T]) => a.localeCompare(b)
-const exists = <TValue>(value: TValue | null | undefined): value is TValue => !!value
+const exists = <TValue>(value: TValue | null | undefined): value is TValue => (value ?? null) !== null
 const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
 const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const replaceAll = (string: string, searchValue: string, replaceValue: string) => string.replace(new RegExp(escapeRegExp(searchValue), 'g'), replaceValue)
@@ -104,28 +104,6 @@ export abstract class TemplateCommon {
       return typeObj.type
     }
     return typeDeep(typeObj) + comment
-  }
-
-  protected toArgs (parameters: Parameter[]) {
-    const classify = (params: Parameter[] = []) => {
-      const [names, all, required, optional] = [[], [], [], []] as string[][]
-      params.forEach((p) => {
-        names.push(p.valName)
-        const type = `${p.valName}${p.required ? '' : '?'}: ${p.type}`
-        all.push(type)
-        p.required ? required.push(type) : optional.push(type)
-      })
-      return { names, types: { all, required, optional, ordered: [...required, ...optional] } }
-    }
-    const toArgs = (parameters: Parameter[]) => {
-      const { path = [], body = [], $config, ...others } = _.groupBy(parameters, x => x.pos)
-      if ((parameters.length - (path.length + body.length)) < 5) return classify(parameters).types.ordered
-      const pathBody = classify([...path, ...body]).types.all // should be no optional type in path and body
-      const { names, types } = classify(Object.values(others).flat())
-      const objectArg = `{ ${names.join(', ')} }: { ${types.all.join(', ')} }`
-      return [pathBody, objectArg, classify($config).types.all].flat()
-    }
-    return toArgs(parameters).join(', ')
   }
 
   protected fixKeys<T extends object> (o: T): T {
@@ -217,58 +195,91 @@ export abstract class TemplateCommon {
       })
     })
     const object = JSON.stringify(propTree, null, '  ')
-      .replace(/".+?"/g, JSON.parse)
+      .replace(/([^\\])(".+?[^\\]")/g, (_, m1, m2) => m1 + JSON.parse(m2))
       .replace(singleLine.regex, singleLine.replacer)
     return this.pluginTemplate({ object })
   }
 
-  protected axiosCall (path: string, method: MethodTypes, methodSpec: Method) {
-    const { parameters, responses } = methodSpec
-    const pathParams: { [key in string]?: Parameter } = _(path.match(/{.+?}/g))
-      .map((x) => x.replace(/[{}]/g, '')).zipObject().value()
-    let body: Parameter | undefined
-    const [headers, query]: { [x in string]: Parameter }[] = [{}, {}]
-    parameters?.forEach((parameter) => {
+  protected convertParameters (method: Method): Parameter[] {
+    const { parameters = [] } = method
+    const ret = parameters.map((parameter):Parameter => {
       const type = this.typeDeep(parameter)
-      const { in: pos, required = false, name } = parameter
-      const valName = camelCase(name)
-      if (!this.skipHeader && pos === 'header') { headers[name] = { name, valName, pos, type, required } }
-      if (pos === 'query') { query[name] = { name, valName, pos, type, required } }
-      if (pos === 'body') { body = { name: '$body', valName: '$body', pos, type, required: true } }
-      if (pos === 'path') { pathParams[name] = { name, valName, pos, type, required: true } }
+      let { in: pos, required = /body|path/.test(pos), name, description = '' } = parameter
+      if (pos === 'body') name = '$body'
+      return { name, valName: camelCase(name), pos, type, required, description }
     })
-    if (('requestBody' in methodSpec) && methodSpec.requestBody) {
-      const pos = '$body'
-      const { required = false, content } = methodSpec.requestBody
+    if (('requestBody' in method) && method.requestBody) {
+      const { required = true, content, description = '' } = method.requestBody
       const { schema } = content['application/json'] || {}
-      if (schema) body = { name: pos, valName: pos, pos, type: this.typeDeep(schema), required }
+      const name = '$body'
+      if (schema) ret.push({ name, valName: name, pos: 'body', type: this.typeDeep(schema), required, description })
     }
-    const arrOf = { queries: Object.values(query), headers: Object.values(headers) }
-    const params = Object.values(pathParams).filter((x): x is Parameter => !!x)
-    params.push(...arrOf.queries)
-    if (body) { params.push(body) }
-    params.push(...arrOf.headers)
-    const $config: Parameter = {
-      name: '$config', valName: '$config', pos: '$config', type: 'AxiosRequestConfig', required: false
+    ret.push({ name: '$config', valName: '$config', pos: '$config', type: 'AxiosRequestConfig', required: false, description: '' })
+    return this.skipHeader ? ret.filter(x => x.pos !== 'header') : ret
+  }
+
+  protected groupParameters (pathStr:string, method:Method) {
+    const parameters = this.convertParameters(method)
+    const [path = [], query = [], header = [], rest = []]:Parameter[][] = []
+    let body:Parameter|undefined
+    let config:Parameter|undefined
+    for (const parameter of parameters) {
+      const { pos } = parameter
+      let type = []
+      if (pos === 'path') type = path
+      else if (pos === 'query') type = query
+      else if (pos === 'body') body = parameter
+      else if (pos === 'header') type = header
+      else if (pos === '$config') config = parameter
+      else type = rest
+      type.push(parameter)
     }
-    params.push($config)
+    path.sort((a, b) => pathStr.indexOf(a.name) - pathStr.indexOf(b.name))
+    const order = [path, query, body, header, rest, config].flat().filter(exists)
+    const [required = [], optional = []]: Parameter[][] = []
+    for (const parameter of order) {
+      parameter.required ? required.push(parameter) : optional.push(parameter)
+    }
+    {
+      const all = [required, optional].flat()
+      const tooMany = all.length - (path.length + (body ? 1 : 0)) >= 5
+      const order = tooMany ? [path, body, [[...query, ...header]], rest, config] : all
+      const parameters = order.flat().filter(exists)
+      return { parameters, path, query, body, config, header, rest }
+    }
+  }
+
+  protected toArgs (parameters: (Parameter | Parameter[])[]) {
+    const destructuredObject = (arr:Parameter[]) => {
+      const keys = arr.map(x => x.valName).join(', ')
+      const types = arr.map(x => `${x.valName}${x.required ? '' : '?'}: ${x.type}`).join(', ')
+      return `{ ${keys} }: { ${types} }`
+    }
+
+    return parameters.map(x => {
+      if (x instanceof Array) return destructuredObject(x)
+      return `${x.valName}${x.required ? '' : '?'}: ${x.type}`
+    }).join(', ')
+  }
+
+  protected axiosCall (path: string, methodType: MethodTypes, method: Method) {
+    const { responses } = method
+    const { parameters, body, config, header, query } = this.groupParameters(path, method)
 
     const axiosParams = [`\`${path.replace(/{/g, '${')}\``]
-    if (body) { axiosParams[1] = body.name }
-    {
-      const noBody = /get|delete/.test(method)
-      if (arrOf.headers.length || arrOf.queries.length) {
-        const join = (arr: Parameter[]) => arr.map(x =>
-          x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`
-        ).join(', ')
-        const headers = arrOf.headers.length ? `headers: { ${join(arrOf.headers)} }` : ''
-        const params = arrOf.queries.length ? `params: { ${join(arrOf.queries)} }` : ''
-        axiosParams[noBody ? 1 : 2] = `{ ${[headers, params, '...' + $config.valName].filter(x => x).join(', ')} }`
-      } else axiosParams[noBody ? 1 : 2] = $config.valName
-    }
+    if (/post|put|patch/i.test(methodType)) axiosParams.push(String(body?.valName))
+    if (header.length + query.length) {
+      const join = (arr: Parameter[]) => arr.map(x =>
+        x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`
+      ).join(', ')
+      const headers = header.length ? `headers: { ${join(header)} }` : ''
+      const params = query.length ? `params: { ${join(query)} }` : ''
+      axiosParams.push(`{ ${[headers, params, config && ('...' + config.valName)].filter(x => x).join(', ')} }`)
+    } else if (config) axiosParams.push(config.valName)
+
     const type = responses[200] ? this.getResponseType(responses[200]) : 'any'
-    const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
-    return `(${this.toArgs(params)}): Promise<${type}> => $axios.$${method}(${paramsString})`
+    const paramsString = axiosParams.map(x => x || 'undefined').join(', ')
+    return `(${this.toArgs(parameters)}): Promise<${type}> => $axios.$${methodType}(${paramsString})`
   }
 
   protected pluginTemplate ({ object }: { object: string }) {
