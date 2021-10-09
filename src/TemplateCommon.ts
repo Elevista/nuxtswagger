@@ -32,14 +32,12 @@ export abstract class TemplateCommon {
   protected readonly relTypePath:string
   protected readonly basePath:string
   protected readonly inject:string
-  protected readonly className:string
   protected readonly skipHeader:boolean
   protected constructor (spec:Spec, { pluginName, basePath, inject, skipHeader, relTypePath }:TemplateOptions) {
     this.relTypePath = relTypePath
     this.basePath = basePath
     this.skipHeader = skipHeader
     this.inject = inject.replace(/^[^a-zA-Z]+/, '').replace(/^[A-Z]/, x => x.toLowerCase())
-    this.className = pluginName.replace(/^[^a-zA-Z]+/, '').replace(/^[a-z]/, x => x.toUpperCase())
     this.fixRefDeep(spec)
   }
 
@@ -195,16 +193,13 @@ export abstract class TemplateCommon {
         _.set(propTree, [...keyPath, methodType], this.axiosCall(path, methodType, method as Method))
       })
     })
-    const properties = Object.entries(propTree).map(([property, child]) => {
-      const code = JSON.stringify(child, null, '  ')
-        .replace(/".+?"/g, JSON.parse)
-        .replace(/^([ ]*)(.*)\/\*((.|\n)+?)\*\//gm, (_, indent, code, comment) => {
-          const prependComment = [this.comment(comment), code].join('\n')
-          return prependComment.trim().replace(/^/gm, indent)
-        })
-      return `${property} = ${code}\n`
-    }).join('\n').trim().replace(/^./mg, '  $&')
-    return this.pluginTemplate({ properties })
+    const object = JSON.stringify(propTree, null, '  ')
+      .replace(/".+?"/g, JSON.parse)
+      .replace(/^([ ]*)(.*)\/\*((.|\n)+?)\*\//gm, (_, indent, code, comment) => {
+        const prependComment = [this.comment(comment), code].join('\n')
+        return prependComment.trim().replace(/^/gm, indent)
+      })
+    return this.pluginTemplate({ object })
   }
 
   protected axiosCall (path: string, method: MethodTypes, methodSpec: Method) {
@@ -263,40 +258,33 @@ export abstract class TemplateCommon {
       .join('\n')
     const comment = description ? `${summary}\n${description}` : summary
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
-    const code = `(${this.toArgs(params)}): Promise<${type}> => this.$axios.$${method}(${paramsString})`
+    const code = `(${this.toArgs(params)}): Promise<${type}> => $axios.$${method}(${paramsString})`
     return comment ? code + `/*${comment}*/` : code
   }
 
-  protected pluginTemplate ({ properties }: { properties: string }) {
+  protected pluginTemplate ({ object }: { object: string }) {
     return `
 ${noInspect}
-import { Plugin } from '@nuxt/types'
+import { Context, Plugin } from '@nuxt/types'
 import { AxiosRequestConfig } from 'axios'
-import { NuxtAxiosInstance } from '@nuxtjs/axios'
 ${this.importTypes()}
 ${typeMatch}
 
-class ${this.className} {
-  public $axios: NuxtAxiosInstance
-  constructor ($axios: NuxtAxiosInstance) {
-    this.$axios = $axios
-  }
+const $${this.inject} = ({ $axios }: Context) => (${object})
 
-${properties}
-}
 declare module '@nuxt/types' {
-  interface Context { $${this.inject}: ${this.className} }
-  interface NuxtAppOptions { $${this.inject}: ${this.className} }
+  interface Context { $${this.inject}: ReturnType<typeof $${this.inject}> }
+  interface NuxtAppOptions { $${this.inject}: ReturnType<typeof $${this.inject}> }
 }
 declare module 'vue/types/vue' {
-  interface Vue { $${this.inject}: ${this.className} }
+  interface Vue { $${this.inject}: ReturnType<typeof $${this.inject}> }
 }
 declare module 'vuex/types/index' {
-  interface Store<S> { $${this.inject}: ${this.className} }
+  interface Store<S> { $${this.inject}: ReturnType<typeof $${this.inject}> }
 }
 
-const plugin: Plugin = ({ $axios }, inject) => {
-  inject('${this.inject}', new ${this.className}($axios))
+const plugin: Plugin = (context, inject) => {
+  inject('${this.inject}', $${this.inject}(context))
 }
 export default plugin
 `.trimStart()
