@@ -9,6 +9,7 @@ interface Parameter { type: string, required: boolean, name: string, valName: st
 type Response = v2.Response | v3.Response
 type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes | {} | Boolean
 type Spec = v2.Spec | v3.Spec
+type Methods = v2.Methods | v3.Methods
 type Method = v2.Method | v3.Method
 type Schemas = v2.Definitions | v3.Schemas
 
@@ -177,9 +178,11 @@ export abstract class TemplateCommon {
 
   public plugin () {
     const { paths } = this.spec
-    const propTree: {[paths: string]: string} = {}
+    type Tree = { [paths: string]: Tree | string }
+    const propTree: Tree = {}
     const base = this.basePath
-    Object.entries(paths).sort(entriesCompare).forEach(([path, methods]) => {
+    const entries: [string, Methods][] = Object.entries(paths)
+    entries.sort(entriesCompare).forEach(([path, methods]) => {
       const keyPath = (path.startsWith(base + '/') ? path.replace(base, '') : path)
         .replace(/[^/{}\w]/g, '_')
         .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()) // foo_bar => fooBar
@@ -187,10 +190,9 @@ export abstract class TemplateCommon {
         .replace(/\/$/, '/$root')
         .split('/').slice(1)
       if (/^v\d+$/.test(keyPath[0])) keyPath.push(keyPath.shift() || '')
-      Object.entries(methods).sort(entriesCompare).forEach(([key, method]) => {
-        if (!(key in MethodTypes)) return
-        const methodType = key as MethodTypes
-        _.set(propTree, [...keyPath, methodType], this.axiosCall(path, methodType, method as Method))
+      const entries = Object.entries(methods) as [MethodTypes, Method][]
+      entries.sort(entriesCompare).forEach(([methodType, method]) => {
+        _.set(propTree, [...keyPath, methodType], this.axiosCall(path, methodType, method))
       })
     })
     const object = JSON.stringify(propTree, null, '  ')
