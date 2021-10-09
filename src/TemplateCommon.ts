@@ -176,36 +176,54 @@ export abstract class TemplateCommon {
     return [noInspect, typeMatch, ...exports, ''].join('\n')
   }
 
+  protected methodDescription (method:Method) {
+    const statusList = Object.keys(method.responses)
+    const responses = statusList
+      .map(key => {
+        const [status, { description }] = [+key, method.responses[+key] || {}]
+        return description ? { status, description } : undefined
+      }).filter(exists)
+      .filter((x, _, { length }) => !(length === 1 && x.status === 200 && /^(OK|Successful)$/i.test(x.description)))
+      .map(x => `${x.status}: ${x.description}`)
+    const ret = [method.summary, ...responses].filter(x => x)
+    return ret.length ? this.comment(ret.join('\n')).trimStart() + '\n' : ''
+  }
+
   public plugin () {
     const { paths } = this.spec
-    type Tree = { [paths: string]: Tree | string }
+    type Tree = { [paths: string]: Tree | string[] }
     const propTree: Tree = {}
     const base = this.basePath
     const entries: [string, Methods][] = Object.entries(paths)
+    const singleLine = {
+      encode: (str: string) => str.replace(/\n/mg, '\x00'),
+      regex: /^([ ]*)((.|\x00)+)/mg,
+      replacer: (_ = '', indent = '', match = '') => {
+        return indent + match.split('\x00').join('\n' + indent)
+      }
+    }
     entries.sort(entriesCompare).forEach(([path, methods]) => {
-      const keyPath = (path.startsWith(base + '/') ? path.replace(base, '') : path)
+      const paths = (path.startsWith(base + '/') ? path.replace(base, '') : path)
         .replace(/[^/{}\w]/g, '_')
         .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()) // foo_bar => fooBar
         .replace(/{(\w+)}/g, '_$1') // {foo} => _foo
         .replace(/\/$/, '/$root')
         .split('/').slice(1)
-      if (/^v\d+$/.test(keyPath[0])) keyPath.push(keyPath.shift() || '')
+      if (/^v\d+$/.test(paths[0])) paths.push(paths.shift() || '')
       const entries = Object.entries(methods) as [MethodTypes, Method][]
       entries.sort(entriesCompare).forEach(([methodType, method]) => {
-        _.set(propTree, [...keyPath, methodType], this.axiosCall(path, methodType, method))
+        const key = singleLine.encode(this.methodDescription(method) + methodType)
+        _.set(propTree, [...paths, key], this.axiosCall(path, methodType, method))
       })
     })
     const object = JSON.stringify(propTree, null, '  ')
       .replace(/".+?"/g, JSON.parse)
-      .replace(/^([ ]*)(.*)\/\*((.|\n)+?)\*\//gm, (_, indent, code, comment) => {
-        const prependComment = [this.comment(comment), code].join('\n')
-        return prependComment.trim().replace(/^/gm, indent)
-      })
+      .replace(singleLine.regex, singleLine.replacer)
     return this.pluginTemplate({ object })
   }
 
   protected axiosCall (path: string, method: MethodTypes, methodSpec: Method) {
-    const { parameters, responses, summary = '' } = methodSpec
+    const { parameters, responses } = methodSpec
     const pathParams: { [key in string]?: Parameter } = _(path.match(/{.+?}/g))
       .map((x) => x.replace(/[{}]/g, '')).zipObject().value()
     let body: Parameter | undefined
@@ -249,19 +267,8 @@ export abstract class TemplateCommon {
       } else axiosParams[noBody ? 1 : 2] = $config.valName
     }
     const type = responses[200] ? this.getResponseType(responses[200]) : 'any'
-    const statusList = Object.keys(responses)
-    const description = statusList
-      .map(key => {
-        const [status, { description }] = [+key, responses[+key] || {}]
-        return description ? { status, description } : undefined
-      }).filter(exists)
-      .filter((x, _, { length }) => !(length === 1 && x.status === 200 && /^(OK|Successful)$/i.test(x.description)))
-      .map(x => `${x.status}: ${x.description}`)
-      .join('\n')
-    const comment = description ? `${summary}\n${description}` : summary
     const paramsString = [...axiosParams].map(x => x || 'undefined').join(', ')
-    const code = `(${this.toArgs(params)}): Promise<${type}> => $axios.$${method}(${paramsString})`
-    return comment ? code + `/*${comment}*/` : code
+    return `(${this.toArgs(params)}): Promise<${type}> => $axios.$${method}(${paramsString})`
   }
 
   protected pluginTemplate ({ object }: { object: string }) {
