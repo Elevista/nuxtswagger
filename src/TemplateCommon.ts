@@ -28,6 +28,14 @@ const genericVar = (i: number) => {
   return i < arr.length ? arr[i] : `T${i + 1 - arr.length}`
 }
 
+const prependText = {
+  encode: (str: string) => str && '\x00' + str.replace(/\n/mg, '\x00') + '\x00',
+  regex: /^([ ]*)(.+?)\x00(.*)\x00/mg,
+  replacer: (_ = '', indent = '', text = '', prepend = '') => {
+    return indent + [prepend.split('\x00'), text].flat().join('\n' + indent)
+  }
+}
+
 export abstract class TemplateCommon {
   protected abstract spec: Spec
   protected readonly relTypePath: string
@@ -59,8 +67,9 @@ export abstract class TemplateCommon {
     const string = comment.toString().trim()
     if (onlyText) return string
     const lines = string.split('\n')
-    if (lines.length === 1) { return ` // ${lines[0]}` }
-    return ['\n/**', ...lines.map(x => ` * ${x}`), ' */'].join('\n')
+    if (!string) return ''
+    if (lines.length === 1) { return `/** ${lines[0]} */` }
+    return ['/**', ...lines.map(x => ` * ${x}`), ' */'].join('\n')
   }
 
   protected makeComment (typeObj: Exclude<TypeDefs, boolean>, onlyText = false) {
@@ -71,7 +80,7 @@ export abstract class TemplateCommon {
     let comment: string
     if (title && description) comment = title + (/\n/.test(description) ? '\n' : ' - ') + description
     else comment = title + description
-    if (example) comment += (/\n/.test(comment + example)) ? `\n${example}` : ` (${example})`
+    if (example) comment += '\n@example' + ((/\n/.test(comment + example)) ? `\n${example}` : `  ${example}`)
     return comment && this.comment(comment, onlyText)
   }
 
@@ -103,7 +112,7 @@ export abstract class TemplateCommon {
       }
       return typeObj.type
     }
-    return typeDeep(typeObj) + comment
+    return typeDeep(typeObj) + prependText.encode(comment)
   }
 
   protected fixKeys<T extends object> (o: T): T {
@@ -149,7 +158,7 @@ export abstract class TemplateCommon {
       const [{ rawName, genericReplacer, type }] = arr
       const comments = arr.map(x => this.makeComment(x.type, true)).filter(x => x)
       const comment = comments.length ? this.comment(comments.join('\n')).trim() + '\n' : ''
-      return `${comment}export type ${genericReplacer(`${rawName} = ${this.typeDeep(type, 1, true)}`)}`
+      return `${comment}export type ${genericReplacer(`${rawName} = ${this.typeDeep(type, 1, true)}`)}`.replace(prependText.regex, prependText.replacer)
     })
     return [noInspect, typeMatch, ...exports, ''].join('\n')
   }
@@ -194,9 +203,7 @@ export abstract class TemplateCommon {
       [summary, responses].filter(x => x).join('\n'),
       [params, returns].filter(x => x).join('\n')
     ].filter(x => x).join('\n\n').trim()
-    if (!lines) return ''
-    if (lines.split('\n').length === 1) return `/** ${lines} */\n`
-    return this.comment(lines).trimStart() + '\n'
+    return this.comment(lines)
   }
 
   public plugin () {
@@ -205,13 +212,6 @@ export abstract class TemplateCommon {
     const propTree: Tree = {}
     const base = this.basePath
     const entries: [string, Methods][] = Object.entries(paths)
-    const singleLine = {
-      encode: (str: string) => str.replace(/\n/mg, '\x00'),
-      regex: /^([ ]*)((.|\x00)+)/mg,
-      replacer: (_ = '', indent = '', match = '') => {
-        return indent + match.split('\x00').join('\n' + indent)
-      }
-    }
     entries.sort(entriesCompare).forEach(([path, methods]) => {
       const paths = (path.startsWith(base + '/') ? path.replace(base, '') : path)
         .replace(/[^/{}\w]/g, '_')
@@ -222,13 +222,14 @@ export abstract class TemplateCommon {
       if (/^v\d+$/.test(paths[0])) paths.push(paths.shift() || '')
       const entries = Object.entries(methods) as [MethodTypes, Method][]
       entries.sort(entriesCompare).forEach(([methodType, method]) => {
-        const key = singleLine.encode(this.documentation(path, method) + methodType)
-        _.set(propTree, [...paths, key], this.axiosCall(path, methodType, method))
+        const comment = prependText.encode(this.documentation(path, method))
+        const fn = this.axiosCall(path, methodType, method)
+        _.set(propTree, [...paths, methodType], fn + comment)
       })
     })
     const object = JSON.stringify(propTree, null, '  ')
       .replace(/([^\\])(".+?[^\\]")/g, (_, m1, m2) => m1 + JSON.parse(m2))
-      .replace(singleLine.regex, singleLine.replacer)
+      .replace(prependText.regex, prependText.replacer)
     return this.pluginTemplate({ object })
   }
 
