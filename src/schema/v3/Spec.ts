@@ -66,7 +66,7 @@ export interface Response {
 }
 
 export type Responses = {
-  [statusCode in number]?: Response
+  [type in string]?: Response
 }
 
 export interface Method {

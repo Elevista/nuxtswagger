@@ -154,17 +154,49 @@ export abstract class TemplateCommon {
     return [noInspect, typeMatch, ...exports, ''].join('\n')
   }
 
-  protected methodDescription (method:Method) {
-    const statusList = Object.keys(method.responses)
-    const responses = statusList
-      .map(key => {
-        const [status, { description }] = [+key, method.responses[+key] || {}]
-        return description ? { status, description } : undefined
-      }).filter(exists)
-      .filter((x, _, { length }) => !(length === 1 && x.status === 200 && /^(OK|Successful)$/i.test(x.description)))
-      .map(x => `${x.status}: ${x.description}`)
-    const ret = [method.summary, ...responses].filter(x => x)
-    return ret.length ? this.comment(ret.join('\n')).trimStart() + '\n' : ''
+  protected documentation (path:string, method:Method) {
+    const { summary = '' } = method
+
+    const { responses, returns } = (() => {
+      const response = method.responses[200] || method.responses.default
+      const useless = /^(OK|Successful)$/i.test(response?.description || '')
+      const returns = useless ? '' : `@returns ${response?.description}`
+      const responses = Object.keys(method.responses)
+        .map((key, i, arr) => {
+          if (arr.length === 1 && useless) return ''
+          const value = method.responses[key]
+          const description = value?.description
+          if ((returns && value === response) || !description) return ''
+          return `${key}: ${description}`
+        }).filter(x => x).join('\n')
+      return { responses, returns }
+    })()
+
+    const params = (() => {
+      const { parameters } = this.groupParameters(path, method)
+      let paramsArr = parameters.map((x, i) => {
+        if (x instanceof Array) {
+          x = x.filter(x => x.description)
+          if (!x.length) return []
+          return [
+            { name: 'arg' + i, description: '' },
+            x.map(({ valName, description }) => ({ name: 'arg' + i + '.' + valName, description }))
+          ].flat()
+        }
+        return { name: x.valName, description: x.description }
+      }).flat()
+      const item = paramsArr.reverse().find(x => x.description)
+      paramsArr = paramsArr.reverse().slice(0, item ? paramsArr.indexOf(item) + 1 : 0)
+      return paramsArr.map(({ name, description }) => `@param ${[name, description].filter(x => x).join('  ')}`).join('\n')
+    })()
+
+    const lines = [
+      [summary, responses].filter(x => x).join('\n'),
+      [params, returns].filter(x => x).join('\n')
+    ].filter(x => x).join('\n\n').trim()
+    if (!lines) return ''
+    if (lines.split('\n').length === 1) return `/** ${lines} */\n`
+    return this.comment(lines).trimStart() + '\n'
   }
 
   public plugin () {
@@ -190,7 +222,7 @@ export abstract class TemplateCommon {
       if (/^v\d+$/.test(paths[0])) paths.push(paths.shift() || '')
       const entries = Object.entries(methods) as [MethodTypes, Method][]
       entries.sort(entriesCompare).forEach(([methodType, method]) => {
-        const key = singleLine.encode(this.methodDescription(method) + methodType)
+        const key = singleLine.encode(this.documentation(path, method) + methodType)
         _.set(propTree, [...paths, key], this.axiosCall(path, methodType, method))
       })
     })
