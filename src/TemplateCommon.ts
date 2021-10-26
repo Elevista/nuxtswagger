@@ -1,6 +1,6 @@
 /* eslint-disable no-control-regex */
 import { Options } from './index'
-import { camelCase, entries } from './utils'
+import { camelCase, entries, keys } from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
 import { LoDashStatic } from 'lodash'
@@ -210,10 +210,6 @@ export abstract class TemplateCommon {
     return this.comment(lines)
   }
 
-  protected defaultForm () {
-    return { object: '{}' }
-  }
-
   protected pathMethodList (): [string, string, Methods][] {
     const { basePath: base, spec: { paths } } = this
     return entries(paths).sort(entriesCompare).map(([path, methods]) => [
@@ -224,6 +220,47 @@ export abstract class TemplateCommon {
         .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()), // foo_bar => fooBar
       methods
     ])
+  }
+
+  protected defaultForm () {
+    type Map = [string, string, MethodTypes, Method] | { [key in string]: Map }
+    const map: Map = {}
+    this.pathMethodList().forEach(([orgPath, path, methods]) => {
+      const paths = path.replace(/\/{(\w+)}/g, '/$1/\x00').split('/').slice(1)
+      keys(methods).forEach(methodType => {
+        const item: Map = [orgPath, path, methodType, methods[methodType]]
+        _.set(map, [paths, methodType].flat(), item)
+      })
+    })
+    const mapValues = <T, U>(obj: { [s: string]: T }, mapFn: (v: T, key?: string) => U): { [s: string]: U } =>
+      Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, mapFn(value, key)]))
+    const rec = (obj: Map, key?: string, params?: Parameter[]):any => {
+      if (obj instanceof Array) {
+        const [orgPath, path, methodType, method] = obj
+        params?.push(...this.convertParameters(method).filter(x => x.pos === 'path'))
+        const comment = prependText.encode(this.documentation(path, method))
+        return comment + this.axiosCall(orgPath, methodType, method)
+      }
+      const { '\x00': pathParam, ...rest } = obj
+      let fn = ''
+      let other = ''
+      if (pathParam && key !== undefined) {
+        let p = (params || [])
+        const content = rec(pathParam, key, p)
+        p = p.filter((x) => x.name === key)
+        const types = _.uniq(p.map((x) => this.typeDeep(x))).join(' | ') || 'any'
+        fn = `${longestComment}(${key}: ${types}) => (${content})`.replace(/^ {2}/mg, '')
+      }
+      if (keys(rest).length) {
+        const res = mapValues(rest, (v, key) => rec(v, key, params))
+        other = JSON.stringify(res, null, '  ')
+          .replace(/([^\\])(".+?[^\\]")/g, (_, m1, m2) => m1 + JSON.parse(m2))
+      }
+      return ((other && fn) ? `Object.assign(${fn}, ${other})` : (other || fn))
+        .replace(/\n/mg, '\n  ')
+    }
+    const object = rec(map).replace(/^ {2}/mg, '')
+    return { object }
   }
 
   protected underscoreForm () {
@@ -290,16 +327,23 @@ export abstract class TemplateCommon {
       type.push(parameter)
     }
     path.sort((a, b) => pathStr.indexOf(a.name) - pathStr.indexOf(b.name))
-    const order = [path, query, body, header, rest, config].flat().filter(exists)
-    const [required = [], optional = []]: Parameter[][] = []
-    for (const parameter of order) {
-      parameter.required ? required.push(parameter) : optional.push(parameter)
-    }
-    {
-      const all = [required, optional].flat()
+    const all = (() => {
+      const _path = this.options.form === 'underscore' ? path : []
+      const order = [_path, query, body, header, rest, config].flat().filter(exists)
+      const [required = [], optional = []]: Parameter[][] = []
+      for (const parameter of order) {
+        parameter.required ? required.push(parameter) : optional.push(parameter)
+      }
+      return [required, optional].flat()
+    })()
+    if (this.options.form === 'underscore') {
       const tooMany = all.length - (path.length + (body ? 1 : 0)) >= 5
       const order = tooMany ? [path, body, [[...query, ...header]], rest, config] : all
       const parameters = order.flat().filter(exists)
+      return { parameters, path, query, body, config, header, rest }
+    } else {
+      const object = [query, header, rest].flat().filter(exists)
+      const parameters = (object.length > 2 ? [body, object, config] : all).filter(exists)
       return { parameters, path, query, body, config, header, rest }
     }
   }
