@@ -36,6 +36,20 @@ export default {
 }
 ```
 
+### Path param mode
+
+*see `form` option*
+
+```js
+/* default (1.1.0+) */
+$api.foo.bar(1).get(2)
+$api.foo.bar.get()
+
+/* underscore */
+$api.foo._bar.get(1, 2)
+$api.foo.bar.get()
+```
+
 ## Options
 ```sh
 nuxtswagger argument1 --option1 value1 --option2 value2
@@ -51,6 +65,7 @@ nuxtswagger argument1 --option1 value1 --option2 value2
 | `type-path` | Path for scheme type file | `{plugins-dir}/{plugin-name}/{types.ts}` | `./types/swagger.d.ts` |
 | `base-path` | base path | `/v1` | `/v2` |
 | `skip-header` | Ignore parameter in header | `false` | `true` |
+| `form` | Path param interface mode | (undefined) | `underscore` |
 
 ### Set options using `package.json`
 ```json
