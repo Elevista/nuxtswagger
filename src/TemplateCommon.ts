@@ -167,6 +167,23 @@ export abstract class TemplateCommon {
     return [noInspect, typeMatch, ...exports, ''].join('\n')
   }
 
+  protected paramsDoc (parameters: (Parameter | Parameter[])[]) {
+    let paramsArr = parameters.map((x, i) => {
+      if (x instanceof Array) {
+        x = x.filter(x => x.description)
+        if (!x.length) return []
+        return [
+          { name: 'arg' + i, description: '' },
+          x.map(({ valName, description }) => ({ name: 'arg' + i + '.' + valName, description }))
+        ].flat()
+      }
+      return { name: x.valName, description: x.description }
+    }).flat()
+    const item = paramsArr.reverse().find(x => x.description)
+    paramsArr = paramsArr.reverse().slice(0, item ? paramsArr.indexOf(item) + 1 : 0)
+    return paramsArr.map(({ name, description }) => `@param ${[name, description].filter(x => x).join('  ')}`).join('\n')
+  }
+
   protected documentation (path:string, method:Method) {
     const { summary = '' } = method
 
@@ -185,23 +202,7 @@ export abstract class TemplateCommon {
       return { responses, returns }
     })()
 
-    const params = (() => {
-      const { parameters } = this.groupParameters(path, method)
-      let paramsArr = parameters.map((x, i) => {
-        if (x instanceof Array) {
-          x = x.filter(x => x.description)
-          if (!x.length) return []
-          return [
-            { name: 'arg' + i, description: '' },
-            x.map(({ valName, description }) => ({ name: 'arg' + i + '.' + valName, description }))
-          ].flat()
-        }
-        return { name: x.valName, description: x.description }
-      }).flat()
-      const item = paramsArr.reverse().find(x => x.description)
-      paramsArr = paramsArr.reverse().slice(0, item ? paramsArr.indexOf(item) + 1 : 0)
-      return paramsArr.map(({ name, description }) => `@param ${[name, description].filter(x => x).join('  ')}`).join('\n')
-    })()
+    const params = this.paramsDoc(this.groupParameters(path, method).parameters)
 
     const lines = [
       [summary, responses].filter(x => x).join('\n'),
@@ -249,6 +250,9 @@ export abstract class TemplateCommon {
         const content = rec(pathParam, key, p)
         p = p.filter((x) => x.name === key)
         const types = _.uniq(p.map((x) => this.typeDeep(x))).join(' | ') || 'any'
+        const [longestComment = ''] = p.map(x => this.paramsDoc([x]))
+          .sort((a, b) => b.length - a.length)
+          .map(x => prependText.encode(this.comment(x)))
         fn = `${longestComment}(${key}: ${types}) => (${content})`.replace(/^ {2}/mg, '')
       }
       if (keys(rest).length) {
