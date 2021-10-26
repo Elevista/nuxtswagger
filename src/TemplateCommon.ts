@@ -1,6 +1,6 @@
 /* eslint-disable no-control-regex */
 import { Options } from './index'
-import { camelCase } from './utils'
+import { camelCase, entries } from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
 import { LoDashStatic } from 'lodash'
@@ -18,7 +18,7 @@ export type TemplateOptions = Options & { relTypePath: string }
 
 const _: LoDashStatic = require('lodash')
 const typeMatch = ['integer', 'long'].map(x => `type ${x} = number`).join('\n')
-const entriesCompare = <T>([a]: [string, T], [b]: [string, T]) => a.localeCompare(b)
+const entriesCompare = <T>([a]: any[], [b]: any[]) => a.localeCompare(b)
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => (value ?? null) !== null
 const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
 const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -42,10 +42,14 @@ export abstract class TemplateCommon {
   protected readonly basePath: string
   protected readonly inject: string
   protected readonly skipHeader: boolean
-  protected constructor (spec: Spec, { pluginName, basePath, inject, skipHeader, relTypePath }: TemplateOptions) {
+  protected options: TemplateOptions;
+
+  protected constructor (spec: Spec, options: TemplateOptions) {
+    const { basePath, inject, skipHeader, relTypePath } = options
     this.relTypePath = relTypePath
     this.basePath = basePath
     this.skipHeader = skipHeader
+    this.options = options
     this.inject = inject.replace(/^[^a-zA-Z]+/, '').replace(/^[A-Z]/, x => x.toLowerCase())
     this.fixRefDeep(spec)
   }
@@ -206,31 +210,49 @@ export abstract class TemplateCommon {
     return this.comment(lines)
   }
 
-  public plugin () {
-    const { paths } = this.spec
+  protected defaultForm () {
+    return { object: '{}' }
+  }
+
+  protected pathMethodList (): [string, string, Methods][] {
+    const { basePath: base, spec: { paths } } = this
+    return entries(paths).sort(entriesCompare).map(([path, methods]) => [
+      path,
+      (path.startsWith(base + '/') ? path.replace(base, '') : path)
+        .replace(/[^/{}\w]/g, '_')
+        .replace(/^(\/v\d+)(\/.+)/, '$2$1')
+        .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()), // foo_bar => fooBar
+      methods
+    ])
+  }
+
+  protected underscoreForm () {
     type Tree = { [paths: string]: Tree | string[] }
     const propTree: Tree = {}
-    const base = this.basePath
-    const entries: [string, Methods][] = Object.entries(paths)
-    entries.sort(entriesCompare).forEach(([path, methods]) => {
-      const paths = (path.startsWith(base + '/') ? path.replace(base, '') : path)
-        .replace(/[^/{}\w]/g, '_')
-        .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()) // foo_bar => fooBar
+    const entries = this.pathMethodList()
+    entries.sort(entriesCompare).forEach(([orgPath, path, methods]) => {
+      const paths = path
         .replace(/{(\w+)}/g, '_$1') // {foo} => _foo
         .replace(/\/$/, '/$root')
         .split('/').slice(1)
-      if (/^v\d+$/.test(paths[0])) paths.push(paths.shift() || '')
       const entries = Object.entries(methods) as [MethodTypes, Method][]
       entries.sort(entriesCompare).forEach(([methodType, method]) => {
         const comment = prependText.encode(this.documentation(path, method))
-        const fn = this.axiosCall(path, methodType, method)
+        const fn = this.axiosCall(orgPath, methodType, method)
         _.set(propTree, [...paths, methodType], fn + comment)
       })
     })
-    const object = JSON.stringify(propTree, null, '  ')
+    return { object: JSON.stringify(propTree, null, '  ') }
+  }
+
+  public plugin () {
+    const { form } = this.options
+    const prepend = (s: string) => s
       .replace(/([^\\])(".+?[^\\]")/g, (_, m1, m2) => m1 + JSON.parse(m2))
       .replace(prependText.regex, prependText.replacer)
-    return this.pluginTemplate({ object })
+    const tpl = ({ object }: { object: string }) => this.pluginTemplate({ object: prepend(object) })
+    if (form === 'underscore') return tpl(this.underscoreForm())
+    return tpl(this.defaultForm())
   }
 
   protected convertParameters (method: Method): Parameter[] {
