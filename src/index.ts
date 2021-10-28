@@ -5,23 +5,24 @@ import fetchSpec from './fetchSpec'
 import { join } from 'path'
 import { LoDashStatic } from 'lodash'
 const { version } = require('../package.json')
-const _:LoDashStatic = require('lodash')
+const _: LoDashStatic = require('lodash')
 const fs = require('fs')
 const mkdirp = require('mkdirp')
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
 const c = require('chalk')
-enum OptionsEnum {
-  src = 'src',
-  pluginsDir = 'pluginsDir',
-  pluginName = 'pluginName',
-  inject = 'inject',
-  typePath = 'typePath',
-  basePath = 'basePath',
-  skipHeader = 'skipHeader'
+
+export interface Options {
+  src: string
+  pluginsDir: string
+  pluginName: string
+  inject: string
+  typePath: string
+  basePath: string
+  skipHeader: boolean
+  form?: 'underscore'
 }
 
-export type Options = Omit<{ [name in OptionsEnum]: string }, 'skipHeader'> & { skipHeader: boolean }
 interface Argv extends Partial<Options> { _: [string?] }
 const argvToOptions = ({ _: [$1], src = $1, ...rest }: Argv): Partial<Options> => ({ src, ...rest })
 const defaultOptions = ({
@@ -31,18 +32,16 @@ const defaultOptions = ({
   inject = pluginName,
   typePath = join(pluginsDir, pluginName, 'types.ts'),
   basePath = '/v1',
-  skipHeader = false
-}:Partial<Options> = {}):Options => ({ src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader: !!skipHeader })
+  skipHeader = false,
+  form
+}:Partial<Options> = {}):Options => ({ src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader, form })
 
-const optionsFromJson = ():Partial<Options> => {
+const optionsFromJson = (): Partial<Options>[] => {
   const ret: any = {}
   try {
     const jsonPath = require('path').join(process.cwd(), 'package.json')
-    const { nuxtswagger }: { nuxtswagger: Partial<Options> } = require(jsonPath)
-    Object.entries(nuxtswagger).forEach(([key, value]) => {
-      if (key in OptionsEnum) ret[key] = value
-    })
-    return ret
+    const { nuxtswagger }: { nuxtswagger: Partial<Options> | Partial<Options>[] } = require(jsonPath)
+    return [nuxtswagger].flat().filter(x => x)
   } catch (e) { return ret }
 }
 
@@ -60,11 +59,8 @@ const makeDirs = ({ pluginsDir, typePath }: Options) => {
   mkdirp.sync(dirname(typePath))
 }
 
-const run = async function () {
-  const { argv }:{argv:Argv} = yargs(hideBin(process.argv))
-  const options = defaultOptions(_.defaults(argvToOptions(argv), optionsFromJson()))
+const generate = async (options:Options) => {
   if (!options.src) throw Error('No JSON path provided')
-  console.log(c.bold(c.green('Nux') + c.bgBlue.white('TS') + c.cyan('wagger')), c.gray(`(v${version})`))
   const spec = await fetchSpec(options.src)
   makeDirs(options)
 
@@ -79,5 +75,15 @@ const run = async function () {
   fs.writeFileSync(pluginPath, template.plugin())
   console.log(c.blue(' ✔ create  '), options.typePath)
   fs.writeFileSync(options.typePath, template.definitions())
+}
+
+const run = async function () {
+  console.log(c.bold(c.green('Nux') + c.bgBlue.white('TS') + c.cyan('wagger')), c.gray(`(v${version})`))
+  const { argv }: { argv: Argv } = yargs(hideBin(process.argv))
+  const jsonOptions = optionsFromJson()
+  if (!jsonOptions.length) return await generate(defaultOptions(argvToOptions(argv)))
+  for (const jsonOption of jsonOptions) {
+    await generate(defaultOptions(_.defaults(argvToOptions(argv), jsonOption)))
+  }
 }
 run()
