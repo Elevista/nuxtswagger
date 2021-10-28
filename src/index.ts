@@ -36,12 +36,12 @@ const defaultOptions = ({
   form
 }:Partial<Options> = {}):Options => ({ src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader, form })
 
-const optionsFromJson = ():Partial<Options> => {
+const optionsFromJson = (): Partial<Options>[] => {
   const ret: any = {}
   try {
     const jsonPath = require('path').join(process.cwd(), 'package.json')
-    const { nuxtswagger }: { nuxtswagger: Partial<Options> } = require(jsonPath)
-    return defaultOptions(nuxtswagger)
+    const { nuxtswagger }: { nuxtswagger: Partial<Options> | Partial<Options>[] } = require(jsonPath)
+    return [nuxtswagger].flat().filter(x => x)
   } catch (e) { return ret }
 }
 
@@ -59,11 +59,8 @@ const makeDirs = ({ pluginsDir, typePath }: Options) => {
   mkdirp.sync(dirname(typePath))
 }
 
-const run = async function () {
-  const { argv }:{argv:Argv} = yargs(hideBin(process.argv))
-  const options = defaultOptions(_.defaults(argvToOptions(argv), optionsFromJson()))
+const generate = async (options:Options) => {
   if (!options.src) throw Error('No JSON path provided')
-  console.log(c.bold(c.green('Nux') + c.bgBlue.white('TS') + c.cyan('wagger')), c.gray(`(v${version})`))
   const spec = await fetchSpec(options.src)
   makeDirs(options)
 
@@ -78,5 +75,15 @@ const run = async function () {
   fs.writeFileSync(pluginPath, template.plugin())
   console.log(c.blue(' ✔ create  '), options.typePath)
   fs.writeFileSync(options.typePath, template.definitions())
+}
+
+const run = async function () {
+  console.log(c.bold(c.green('Nux') + c.bgBlue.white('TS') + c.cyan('wagger')), c.gray(`(v${version})`))
+  const { argv }: { argv: Argv } = yargs(hideBin(process.argv))
+  const jsonOptions = optionsFromJson()
+  if (!jsonOptions.length) return await generate(defaultOptions(argvToOptions(argv)))
+  for (const jsonOption of jsonOptions) {
+    await generate(defaultOptions(_.defaults(argvToOptions(argv), jsonOption)))
+  }
 }
 run()
