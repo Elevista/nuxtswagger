@@ -376,14 +376,16 @@ export abstract class TemplateCommon {
     const { parameters, body, config, header, query } = this.groupParameters(path, method)
 
     const axiosParams = [`\`${path.replace(/{/g, '${')}\``]
-    if (/post|put|patch/i.test(methodType)) axiosParams.push(String(body?.valName))
-    if (header.length + query.length) {
+    const hasRequestBody = /post|put|patch/i.test(methodType)
+    if (hasRequestBody) axiosParams.push(String(body?.valName))
+    const data = !hasRequestBody && body ? `data: ${body.valName}` : ''
+    if (header.length + query.length || data) {
       const join = (arr: Parameter[]) => arr.map(x =>
         x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`
       ).join(', ')
       const headers = header.length ? `headers: { ${join(header)} }` : ''
       const params = query.length ? `params: { ${join(query)} }` : ''
-      axiosParams.push(`{ ${[headers, params, config && ('...' + config.valName)].filter(x => x).join(', ')} }`)
+      axiosParams.push(`{ ${[headers, params, data, config && ('...' + config.valName)].filter(x => x).join(', ')} }`)
     } else if (config) axiosParams.push(config.valName)
 
     const type = responses[200] ? this.getResponseType(responses[200]) : 'any'
