@@ -3,7 +3,7 @@ type PrimitiveTypes = 'string' | 'number' | 'integer' | 'boolean'
 type TypeNames = PrimitiveTypes | 'array' | 'object'
 export type ParameterIn = 'query'| 'header'| 'path' | 'cookie'
 export type Formats = 'date' | 'date-time' | 'password' | 'byte' | 'binary'
-export enum MethodTypes{get='get', post='post', put='put', patch='patch', delete='delete', head='head', options='options'}
+export enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
 export interface Ref {
   description?: string
   $ref: string
@@ -54,9 +54,17 @@ export interface TypeNumber extends TypeProto<number> {
 
 export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | Ref)
 
+export type Example = {
+  summary?: string
+  description?: string
+  value?: any
+  externalValue?: string // A URL that points to the literal example.
+}
+
 export type Content = {
   [mediaType: string]: {
     schema: Types
+    examples?: { [param in string]?: Example }
   }
 }
 
@@ -66,19 +74,22 @@ export interface Response {
 }
 
 export type Responses = {
-  [statusCode in number]?: Response
+  [type in string]?: Response
 }
 
 export interface Method {
   operationId: string
   responses: Responses
   summary?: string
+  description?: string
   parameters?: Array<ParameterTypes>
-  requestBody?:{
+  requestBody?: {
+    description?: string
     required?: boolean
-    content:Content
+    content: Content
   }
   tags: Array<string>
+  deprecated?: boolean
 }
 
 export type Methods = {
