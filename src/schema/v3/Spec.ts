@@ -3,7 +3,7 @@ type PrimitiveTypes = 'string' | 'number' | 'integer' | 'boolean'
 type TypeNames = PrimitiveTypes | 'array' | 'object'
 export type ParameterIn = 'query'| 'header'| 'path' | 'cookie'
 export type Formats = 'date' | 'date-time' | 'password' | 'byte' | 'binary'
-export enum MethodTypes{get='get', post='post', put='put', patch='patch', delete='delete', head='head', options='options'}
+export enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
 export interface Ref {
   description?: string
   $ref: string
@@ -73,6 +73,7 @@ export interface Method {
   operationId: string
   responses: Responses
   summary?: string
+  description?: string
   parameters?: Array<ParameterTypes>
   requestBody?: {
     description?: string
@@ -80,6 +81,7 @@ export interface Method {
     content: Content
   }
   tags: Array<string>
+  deprecated?: boolean
 }
 
 export type Methods = {

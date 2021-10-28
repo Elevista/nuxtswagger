@@ -184,8 +184,8 @@ export abstract class TemplateCommon {
     return paramsArr.map(({ name, description }) => `@param ${[name, description].filter(x => x).join('  ')}`).join('\n')
   }
 
-  protected documentation (path:string, method:Method) {
-    const { summary = '' } = method
+  protected documentation (path: string, method: Method) {
+    const { deprecated } = method
 
     const { responses, returns } = (() => {
       const response = method.responses[200] || method.responses.default
@@ -203,12 +203,18 @@ export abstract class TemplateCommon {
     })()
 
     const params = this.paramsDoc(this.groupParameters(path, method).parameters)
+    const { description, summary } = method.description ? method : { description: method.summary, summary: '' }
 
-    const lines = [
-      [summary, responses].filter(x => x).join('\n'),
-      [params, returns].filter(x => x).join('\n')
+    const paragraphs = [
+      description,
+      responses,
+      [
+        params, returns,
+        summary && `@summary ${summary}`,
+        deprecated && '@deprecated'
+      ].filter(x => x).join('\n')
     ].filter(x => x).join('\n\n').trim()
-    return this.comment(lines)
+    return this.comment(paragraphs)
   }
 
   protected pathMethodList (): [string, string, Methods][] {
@@ -271,7 +277,7 @@ export abstract class TemplateCommon {
     type Tree = { [paths: string]: Tree | string[] }
     const propTree: Tree = {}
     const entries = this.pathMethodList()
-    entries.sort(entriesCompare).forEach(([orgPath, path, methods]) => {
+    entries.forEach(([orgPath, path, methods]) => {
       const paths = path
         .replace(/{(\w+)}/g, '_$1') // {foo} => _foo
         .replace(/\/$/, '/$root')
