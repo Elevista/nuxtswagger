@@ -57,6 +57,7 @@ export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolea
 export interface Response {
   description?: string
   schema?: Types
+  examples?: { [mimeType in string]: any }
 }
 
 export type Responses = {

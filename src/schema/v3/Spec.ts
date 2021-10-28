@@ -54,9 +54,17 @@ export interface TypeNumber extends TypeProto<number> {
 
 export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | Ref)
 
+export type Example = {
+  summary?: string
+  description?: string
+  value?: any
+  externalValue?: string // A URL that points to the literal example.
+}
+
 export type Content = {
   [mediaType: string]: {
     schema: Types
+    examples?: { [param in string]?: Example }
   }
 }
 
