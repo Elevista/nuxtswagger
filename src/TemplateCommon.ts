@@ -7,7 +7,7 @@ import _ from 'lodash'
 type ParameterIn = v2.ParameterIn | v3.ParameterIn | 'body' | '$config'
 interface Parameter { type: string, required: boolean, name: string, valName: string, pos: ParameterIn, description: string }
 type Response = v2.Response | v3.Response
-type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes | {} | Boolean
+type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes | Required<v2.TypeObject | v3.TypeObject>['additionalProperties']
 type Spec = v2.Spec | v3.Spec
 type Methods = v2.Methods | v3.Methods
 type Method = v2.Method | v3.Method
@@ -88,7 +88,7 @@ export abstract class TemplateCommon {
     const canComment = maxIndent >= 0 && !noComment
     const indentProps = maxIndent > 0
     const comment = canComment ? this.makeComment(typeObj) : ''
-    const typeDeep = (typeObj: TypeDefs): string => {
+    const typeDeep = (typeObj: Exclude<TypeDefs, boolean>): string => {
       if ('schema' in typeObj) return typeDeep(typeObj.schema)
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
       if ('enum' in typeObj) {
@@ -98,7 +98,7 @@ export abstract class TemplateCommon {
       if (typeObj.type === 'array') return `Array<${typeDeep(typeObj.items)}>`
       if (typeObj.type === 'object') {
         const { properties, additionalProperties, required = [] } = typeObj
-        const entries: [string, TypeDefs][] = Object.entries(properties || {})
+        const entries: [string, Exclude<TypeDefs, boolean>][] = properties ? Object.entries(properties) : []
         if (additionalProperties) entries.push(['[key in any]', additionalProperties])
         if (!entries.length) return 'any'
         const items = entries.map(([name, value]) => {
