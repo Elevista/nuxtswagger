@@ -241,7 +241,7 @@ export abstract class TemplateCommon {
     })
     const mapValues = <T, U>(obj: { [s: string]: T }, mapFn: (v: T, key?: string) => U): { [s: string]: U } =>
       Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, mapFn(value, key)]))
-    const rec = (obj: Map, key?: string, params?: Parameter[]):any => {
+    const deep = (obj: Map, key?: string, params?: Parameter[]) => {
       if (obj instanceof Array) {
         const [orgPath, path, methodType, method] = obj
         params?.push(...this.convertParameters(method).filter(x => x.pos === 'path'))
@@ -249,28 +249,26 @@ export abstract class TemplateCommon {
         return comment + this.axiosCall(orgPath, methodType, method)
       }
       const { '\x00': pathParam, ...rest } = obj
-      let fn = ''
-      let other = ''
+      let [fn, other] = ['', '']
       if (pathParam && key !== undefined) {
         let p = (params || [])
-        const content = rec(pathParam, key, p)
+        const content = deep(pathParam, key, p)
         p = p.filter((x) => x.name === key)
         const types = _.uniq(p.map((x) => this.typeDeep(x))).join(' | ') || 'any'
         const [longestComment = ''] = p.map(x => this.paramsDoc([x]))
           .sort((a, b) => b.length - a.length)
           .map(x => prependText.encode(this.comment(x)))
-        fn = `${longestComment}(${key}: ${types}) => (${content})`.replace(/^ {2}/mg, '')
+        fn = `${longestComment}(${key}: ${types}) => (${content})`
       }
       if (keys(rest).length) {
         const res = mapValues(rest, (v, key) => rec(v, key, params))
         other = JSON.stringify(res, null, '  ')
           .replace(/([^\\])(".+?[^\\]")/g, (_, m1, m2) => m1 + JSON.parse(m2))
+        if (key) other = other.replace(/\n/mg, '\n  ')
       }
-      return ((other && fn) ? `Object.assign(${fn}, ${other})` : (other || fn))
-        .replace(/\n/mg, '\n  ')
+      return ((fn && other) ? `Object.assign(${fn}, ${other})` : (fn || other))
     }
-    const object = rec(map).replace(/^ {2}/mg, '')
-    return { object }
+    return { object: deep(map) }
   }
 
   protected underscoreForm () {
