@@ -3,7 +3,7 @@ import { Options } from './index'
 import { camelCase, entries, keys, stringify } from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
-import { LoDashStatic } from 'lodash'
+import _ from 'lodash'
 type ParameterIn = v2.ParameterIn | v3.ParameterIn | 'body' | '$config'
 interface Parameter { type: string, required: boolean, name: string, valName: string, pos: ParameterIn, description: string }
 type Response = v2.Response | v3.Response
@@ -15,10 +15,8 @@ type Schemas = v2.Definitions | v3.Schemas
 
 enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
 export type TemplateOptions = Options & { relTypePath: string }
-
-const _: LoDashStatic = require('lodash')
 const typeMatch = ['integer', 'long'].map(x => `type ${x} = number`).join('\n')
-const entriesCompare = <T>([a]: any[], [b]: any[]) => a.localeCompare(b)
+const entriesCompare = ([a]: any[], [b]: any[]) => a.localeCompare(b)
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => (value ?? null) !== null
 const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
 const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -26,10 +24,10 @@ const replaceAll = (string: string, searchValue: string, replaceValue: string) =
 const genericVar = (i: number, vars = ['T', 'U', 'V']) => i < vars.length ? vars[i] : `T${i + 1 - vars.length}`
 
 const prependText = {
-  encode: (str: string) => str && '\x00' + str.replace(/\n/mg, '\x00') + '\x00',
+  encode: (str: string) => str && `\x00${str.replace(/\n/mg, '\x00')}\x00`,
   regex: /^(\s*)(.+?)\x00(.*)\x00/mg,
   replacer: (_ = '', space = '', text = '', prepend = '') =>
-    space + [prepend.split('\x00'), text].flat().join('\n' + space)
+    space + [prepend.split('\x00'), text].flat().join(`\n${space}`),
 }
 
 export abstract class TemplateCommon {
@@ -81,7 +79,7 @@ export abstract class TemplateCommon {
     let comment: string
     if (title && description) comment = title + (/\n/.test(description) ? '\n' : ' - ') + description
     else comment = title + description
-    if (example) comment += '\n@example' + ((/\n/.test(comment + example)) ? `\n${example}` : `  ${example}`)
+    if (example) comment += `\n@example${(/\n/.test(comment + example)) ? `\n${example}` : `  ${example}`}`
     return comment && this.comment(comment, onlyText)
   }
 
@@ -158,7 +156,7 @@ export abstract class TemplateCommon {
     const exports = Object.values(_.groupBy(types, x => x.name)).map(arr => {
       const [{ rawName, genericReplacer, type }] = arr
       const comments = arr.map(x => this.makeComment(x.type, true)).filter(x => x)
-      const comment = comments.length ? this.comment(comments.join('\n')).trim() + '\n' : ''
+      const comment = comments.length ? `${this.comment(comments.join('\n')).trim()}\n` : ''
       return `${comment}export type ${genericReplacer(`${rawName} = ${this.typeDeep(type, 1, true)}`)}`.replace(prependText.regex, prependText.replacer)
     })
     return [noInspect, typeMatch, ...exports, ''].join('\n')
@@ -170,8 +168,8 @@ export abstract class TemplateCommon {
         x = x.filter(x => x.description)
         if (!x.length) return []
         return [
-          { name: 'arg' + i, description: '' },
-          x.map(({ valName, description }) => ({ name: 'arg' + i + '.' + valName, description }))
+          { name: `arg${i}`, description: '' },
+          x.map(({ valName, description }) => ({ name: `arg${i}.${valName}`, description })),
         ].flat()
       }
       return { name: x.valName, description: x.description }
@@ -208,8 +206,8 @@ export abstract class TemplateCommon {
       [
         params, returns,
         summary && `@summary ${summary}`,
-        deprecated && '@deprecated'
-      ].filter(x => x).join('\n')
+        deprecated && '@deprecated',
+      ].filter(x => x).join('\n'),
     ].filter(x => x).join('\n\n').trim()
     return this.comment(paragraphs)
   }
@@ -218,11 +216,11 @@ export abstract class TemplateCommon {
     const { basePath: base, spec: { paths } } = this
     return entries(paths).sort(entriesCompare).map(([path, methods]) => [
       path,
-      (path.startsWith(base + '/') ? path.replace(base, '') : path)
+      (path.startsWith(`${base}/`) ? path.replace(base, '') : path)
         .replace(/[^/{}\w]/g, '_')
         .replace(/^(\/v\d+)(\/.+)/, '$2$1')
         .replace(/([a-z\d])_([a-z])/g, (_, p1, p2) => p1 + p2.toUpperCase()), // foo_bar => fooBar
-      methods
+      methods,
     ])
   }
 
@@ -374,11 +372,11 @@ export abstract class TemplateCommon {
     const data = !hasRequestBody && body ? `data: ${body.valName}` : ''
     if (header.length + query.length || data) {
       const join = (arr: Parameter[]) => arr.map(x =>
-        x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`
+        x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`,
       ).join(', ')
       const headers = header.length ? `headers: { ${join(header)} }` : ''
       const params = query.length ? `params: { ${join(query)} }` : ''
-      axiosParams.push(`{ ${[headers, params, data, config && ('...' + config.valName)].filter(x => x).join(', ')} }`)
+      axiosParams.push(`{ ${[headers, params, data, config && (`...${config.valName}`)].filter(x => x).join(', ')} }`)
     } else if (config) axiosParams.push(config.valName)
 
     const type = responses[200] ? this.getResponseType(responses[200]) : 'any'

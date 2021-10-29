@@ -1,7 +1,8 @@
 # NuxTSwagger
 Nuxt-TS-Swagger plugin generator CLI
 
-[![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg?style=flat-square)](https://standardjs.com)  [![npm package](https://img.shields.io/npm/v/nuxtswagger.svg?maxAge=2592000&style=flat-square)](https://www.npmjs.com/package/nuxtswagger)
+[![npm package](https://img.shields.io/npm/v/nuxtswagger.svg?maxAge=2592000&style=flat-square)](https://www.npmjs.com/package/nuxtswagger)
+[![github stars](https://img.shields.io/github/stars/Elevista/nuxtswagger?style=social)](https://github.com/Elevista/nuxtswagger)
 
 ## Installation
 ```sh

@@ -3,14 +3,15 @@ import V2 from './schema/v2/Template'
 import V3 from './schema/v3/Template'
 import fetchSpec from './fetchSpec'
 import { join } from 'path'
-import { LoDashStatic } from 'lodash'
-const { version } = require('../package.json')
-const _: LoDashStatic = require('lodash')
-const fs = require('fs')
-const mkdirp = require('mkdirp')
+import _ from 'lodash'
+import package_json from '../package.json'
+import fs from  'fs'
+import mkdirp from 'mkdirp'
+import c from 'chalk'
+import path from 'path'
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
-const c = require('chalk')
+const { version } = package_json
 
 export interface Options {
   src: string
@@ -33,20 +34,20 @@ const defaultOptions = ({
   typePath = join(pluginsDir, pluginName, 'types.ts'),
   basePath = '/v1',
   skipHeader = false,
-  form
-}:Partial<Options> = {}):Options => ({ src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader, form })
+  form,
+}: Partial<Options> = {}): Options => ({ src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader, form })
 
 const optionsFromJson = (): Partial<Options>[] => {
   const ret: any = {}
   try {
-    const jsonPath = require('path').join(process.cwd(), 'package.json')
+    const jsonPath = path.join(process.cwd(), 'package.json')
     const { nuxtswagger }: { nuxtswagger: Partial<Options> | Partial<Options>[] } = require(jsonPath)
     return [nuxtswagger].flat().filter(x => x)
   } catch (e) { return ret }
 }
 
-const pluginRelTypePath = ({ pluginsDir, typePath, pluginName }:Options) => {
-  const { join, basename, dirname, relative } = require('path')
+const pluginRelTypePath = ({ pluginsDir, typePath, pluginName }: Options) => {
+  const { join, basename, dirname, relative } = path
   const sameDir = join(pluginsDir, pluginName) === dirname(typePath)
   const pluginPath = sameDir ? join(pluginsDir, pluginName, 'index.ts') : join(pluginsDir, `${pluginName}.ts`)
   const relTypePath = (sameDir ? `./${basename(typePath)}` : relative(dirname(pluginPath), typePath)).replace(/\.ts$/, '')
@@ -54,12 +55,11 @@ const pluginRelTypePath = ({ pluginsDir, typePath, pluginName }:Options) => {
 }
 
 const makeDirs = ({ pluginsDir, typePath }: Options) => {
-  const { dirname } = require('path')
   mkdirp.sync(pluginsDir)
-  mkdirp.sync(dirname(typePath))
+  mkdirp.sync(path.dirname(typePath))
 }
 
-const generate = async (options:Options) => {
+const generate = async (options: Options) => {
   if (!options.src) throw Error('No JSON path provided')
   const spec = await fetchSpec(options.src)
   makeDirs(options)
