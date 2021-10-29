@@ -1,6 +1,6 @@
 /* eslint-disable no-control-regex */
 import { Options } from './index'
-import { camelCase, entries, keys } from './utils'
+import { camelCase, entries, keys, stringify } from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
 import { LoDashStatic } from 'lodash'
@@ -30,7 +30,7 @@ const genericVar = (i: number) => {
 
 const prependText = {
   encode: (str: string) => str && '\x00' + str.replace(/\n/mg, '\x00') + '\x00',
-  regex: /^([ ]*)(.+?)\x00(.*)\x00/mg,
+  regex: /^(\s*)(.+?)\x00(.*)\x00/mg,
   replacer: (_ = '', indent = '', text = '', prepend = '') => {
     return indent + [prepend.split('\x00'), text].flat().join('\n' + indent)
   }
@@ -261,9 +261,8 @@ export abstract class TemplateCommon {
         fn = `${longestComment}(${key}: ${types}) => (${content})`
       }
       if (keys(rest).length) {
-        const res = mapValues(rest, (v, key) => rec(v, key, params))
-        other = JSON.stringify(res, null, '  ')
-          .replace(/([^\\])(".+?[^\\]")/g, (_, m1, m2) => m1 + JSON.parse(m2))
+        const res = mapValues(rest, (v, key) => deep(v, key, params))
+        other = stringify(res)
         if (key) other = other.replace(/\n/mg, '\n  ')
       }
       return ((fn && other) ? `Object.assign(${fn}, ${other})` : (fn || other))
@@ -287,13 +286,12 @@ export abstract class TemplateCommon {
         _.set(propTree, [...paths, methodType], fn + comment)
       })
     })
-    return { object: JSON.stringify(propTree, null, '  ') }
+    return { object: stringify(propTree) }
   }
 
   public plugin () {
     const { form } = this.options
     const prepend = (s: string) => s
-      .replace(/([^\\])(".+?[^\\]")/g, (_, m1, m2) => m1 + JSON.parse(m2))
       .replace(prependText.regex, prependText.replacer)
     const tpl = ({ object }: { object: string }) => this.pluginTemplate({ object: prepend(object) })
     if (form === 'underscore') return tpl(this.underscoreForm())
