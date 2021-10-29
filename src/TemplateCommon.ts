@@ -23,17 +23,13 @@ const exists = <TValue>(value: TValue | null | undefined): value is TValue => (v
 const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
 const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const replaceAll = (string: string, searchValue: string, replaceValue: string) => string.replace(new RegExp(escapeRegExp(searchValue), 'g'), replaceValue)
-const genericVar = (i: number) => {
-  const arr = ['T', 'U', 'V']
-  return i < arr.length ? arr[i] : `T${i + 1 - arr.length}`
-}
+const genericVar = (i: number, vars = ['T', 'U', 'V']) => i < vars.length ? vars[i] : `T${i + 1 - vars.length}`
 
 const prependText = {
   encode: (str: string) => str && '\x00' + str.replace(/\n/mg, '\x00') + '\x00',
   regex: /^(\s*)(.+?)\x00(.*)\x00/mg,
-  replacer: (_ = '', indent = '', text = '', prepend = '') => {
-    return indent + [prepend.split('\x00'), text].flat().join('\n' + indent)
-  }
+  replacer: (_ = '', space = '', text = '', prepend = '') =>
+    space + [prepend.split('\x00'), text].flat().join('\n' + space)
 }
 
 export abstract class TemplateCommon {
@@ -55,6 +51,7 @@ export abstract class TemplateCommon {
   }
 
   protected abstract get schemas(): Schemas
+
   protected abstract getResponseType(response: Response): string
 
   protected fixTypeName = (name: string) => name
@@ -65,14 +62,14 @@ export abstract class TemplateCommon {
     .replace(/.+/, camelCase)
     .replace(/[ ]+$/g, '')
 
-  protected comment (comment?: string|number|boolean|object, onlyText = false) {
-    if (comment === undefined) { return '' }
+  protected comment (comment?: string | number | boolean | object, onlyText = false) {
+    if (comment === undefined) return ''
     if (comment === Object(comment)) comment = JSON.stringify(comment)
     const string = comment.toString().trim()
     if (onlyText) return string
     const lines = string.split('\n')
     if (!string) return ''
-    if (lines.length === 1) { return `/** ${lines[0]} */` }
+    if (lines.length === 1) return `/** ${lines[0]} */`
     return ['/**', ...lines.map(x => ` * ${x}`), ' */'].join('\n')
   }
 
@@ -300,7 +297,7 @@ export abstract class TemplateCommon {
 
   protected convertParameters (method: Method): Parameter[] {
     const { parameters = [] } = method
-    const ret = parameters.map((parameter):Parameter => {
+    const ret = parameters.map((parameter): Parameter => {
       const type = this.typeDeep(parameter)
       let { in: pos, required = /body|path/.test(pos), name, description = '' } = parameter
       if (pos === 'body') name = '$body'
@@ -316,11 +313,11 @@ export abstract class TemplateCommon {
     return this.skipHeader ? ret.filter(x => x.pos !== 'header') : ret
   }
 
-  protected groupParameters (pathStr:string, method:Method) {
+  protected groupParameters (pathStr: string, method: Method) {
     const parameters = this.convertParameters(method)
-    const [path = [], query = [], header = [], rest = []]:Parameter[][] = []
-    let body:Parameter|undefined
-    let config:Parameter|undefined
+    const [path = [], query = [], header = [], rest = []]: Parameter[][] = []
+    let body: Parameter | undefined
+    let config: Parameter | undefined
     for (const parameter of parameters) {
       const { pos } = parameter
       let type = []
@@ -355,7 +352,7 @@ export abstract class TemplateCommon {
   }
 
   protected toArgs (parameters: (Parameter | Parameter[])[]) {
-    const destructuredObject = (arr:Parameter[]) => {
+    const destructuredObject = (arr: Parameter[]) => {
       const keys = arr.map(x => x.valName).join(', ')
       const types = arr.map(x => `${x.valName}${x.required ? '' : '?'}: ${x.type}`).join(', ')
       return `{ ${keys} }: { ${types} }`
