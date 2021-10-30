@@ -63,7 +63,7 @@ export abstract class TemplateCommon {
   protected comment (comment?: string | number | boolean | object, onlyText = false) {
     if (comment === undefined) return ''
     if (comment === Object(comment)) comment = JSON.stringify(comment)
-    const string = comment.toString().trim()
+    const string = comment.toString().trim().replace(/\//g, '∕')
     if (onlyText) return string
     const lines = string.split('\n')
     if (!string) return ''
