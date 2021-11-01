@@ -133,7 +133,7 @@ export abstract class TemplateCommon {
     deep(spec)
   }
 
-  protected importTypes () {
+  protected get importTypes () {
     const withoutGeneric = _.uniq(Object.keys(this.schemas).map(x => x.replace(/<.+>/, ''))).sort(localeCompare)
     const typeMatches = Object.values(typeMatchMap).flat(2)
     return [withoutGeneric, typeMatches].filter(x => x.length)
@@ -390,28 +390,39 @@ export abstract class TemplateCommon {
     return `(${this.toArgs(parameters)}): Promise<${type}> => $axios.$${methodType}(${paramsString})`
   }
 
+  protected pluginFunction (object: string) {
+    const { axiosConfig, pluginName } = this.options
+    if (!axiosConfig) return `({ $axios }: Context) => (${object})`
+    const code = `
+$axios = $axios.create([$config.nuxtswagger].flat().find(x => x?.pluginName === '${pluginName}')?.axiosConfig)
+return ${object}
+`.trimStart().replace(/^/mg, '  ')
+    return `({ $axios, $config }: Context) => {\n${code}\n}`
+  }
+
   protected pluginTemplate ({ object }: { object: string }) {
+    const { importTypes, inject } = this
     return `
 ${noInspect}
 import { Context, Plugin } from '@nuxt/types'
 import { AxiosRequestConfig } from 'axios'
-${this.importTypes()}
+${importTypes}
 
-const $${this.inject} = ({ $axios }: Context) => (${object})
+const $${inject} = ${this.pluginFunction(object)}
 
 declare module '@nuxt/types' {
-  interface Context { $${this.inject}: ReturnType<typeof $${this.inject}> }
-  interface NuxtAppOptions { $${this.inject}: ReturnType<typeof $${this.inject}> }
+  interface Context { $${inject}: ReturnType<typeof $${inject}> }
+  interface NuxtAppOptions { $${inject}: ReturnType<typeof $${inject}> }
 }
 declare module 'vue/types/vue' {
-  interface Vue { $${this.inject}: ReturnType<typeof $${this.inject}> }
+  interface Vue { $${inject}: ReturnType<typeof $${inject}> }
 }
 declare module 'vuex/types/index' {
-  interface Store<S> { $${this.inject}: ReturnType<typeof $${this.inject}> }
+  interface Store<S> { $${inject}: ReturnType<typeof $${inject}> }
 }
 
 const plugin: Plugin = (context, inject) => {
-  inject('${this.inject}', $${this.inject}(context))
+  inject('${inject}', $${inject}(context))
 }
 export default plugin
 `.trimStart()

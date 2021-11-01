@@ -18,7 +18,8 @@
     "swagger"
   ],
   "files": [
-    "dist"
+    "dist",
+    "types"
   ],
   "author": "Elevista",
   "license": "ISC",
@@ -35,10 +36,11 @@
   "eslintIgnore": [
     "node_modules",
     "dist",
+    "types",
     "plugins"
   ],
   "main": "dist/index.js",
-  "types": "dist/types/index.d.ts",
+  "types": "types/index.d.ts",
   "devDependencies": {
     "@nuxt/types": "^2.14.7",
     "@nuxtjs/axios": "^5.13.6",

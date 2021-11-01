@@ -52,6 +52,9 @@ $api.foo.bar.get()
 ```
 
 ## Options
+
+options priority : command line > `nuxt.config` > `package.json`
+
 ```sh
 nuxtswagger argument1 --option1 value1 --option2 value2
 ```
@@ -75,11 +78,39 @@ nuxtswagger argument1 --option1 value1 --option2 value2
     "swagger": "nuxtswagger"
   },
   "nuxtswagger": {
-    "src": "https://api.server.foo/swagger.json",
-    "pluginName": "foo"
+    "pluginName": "foo",
+    "src": "https://api.server.foo/swagger.json"
   }
 }
 ```
+
+### Set options using `nuxt.config`
+
+```js
+export default {
+  // support array
+  publicRuntimeConfig: {
+    nuxtswagger: {
+      pluginName: 'foo',
+      // AxiosRequestConfig?
+      axiosConfig: { baseURL: 'https://api-stage.server.foo' }
+    }
+  }
+}
+```
+
+#### `tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "types": ["nuxtswagger/types"]
+  }
+}
+```
+
+
+
 and `npm run swagger` or `npx nuxtswagger`
 
 
