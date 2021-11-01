@@ -15,8 +15,12 @@ type Schemas = v2.Definitions | v3.Schemas
 
 enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
 export type TemplateOptions = Options & { relTypePath: string }
-const typeMatch = ['integer', 'long'].map(x => `type ${x} = number`).join('\n')
-const entriesCompare = ([a]: any[], [b]: any[]) => a.localeCompare(b)
+const typeMatchMap = {
+  number: ['integer', 'long', 'float', 'double'],
+  string: ['byte', 'binary', 'date', 'dateTime', 'password'],
+}
+const localeCompare = (a: string, b: string) => a.localeCompare(b)
+const entriesCompare = ([a]: any[], [b]: any[]) => localeCompare(a, b)
 const exists = <TValue>(value: TValue | null | undefined): value is TValue => (value ?? null) !== null
 const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
 const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
@@ -131,8 +135,10 @@ export abstract class TemplateCommon {
   }
 
   protected importTypes () {
-    const withoutGeneric = Object.keys(this.schemas).map(x => x.replace(/<.+>/, ''))
-    return `import { ${_.uniq(withoutGeneric).sort().join(', ')} } from '${this.relTypePath}'`
+    const withoutGeneric = _.uniq(Object.keys(this.schemas).map(x => x.replace(/<.+>/, ''))).sort(localeCompare)
+    const typeMatches = Object.values(typeMatchMap).flat(2)
+    return [withoutGeneric, typeMatches].filter(x => x.length)
+      .map(types => `import { ${types.join(', ')} } from '${this.relTypePath}'`).join('\n')
   }
 
   public definitions () {
@@ -159,7 +165,8 @@ export abstract class TemplateCommon {
       const comment = comments.length ? `${this.comment(comments.join('\n')).trim()}\n` : ''
       return `${comment}export type ${genericReplacer(`${rawName} = ${this.typeDeep(type, 1, true)}`)}`.replace(prependText.regex, prependText.replacer)
     })
-    return [noInspect, typeMatch, ...exports, ''].join('\n')
+    const typeMatch = entries(typeMatchMap).map(([jsType, list]) => list.map(swaggerType => `export type ${swaggerType} = ${jsType}`)).flat().join('\n')
+    return [noInspect, ...exports, typeMatch, ''].join('\n')
   }
 
   protected paramsDoc (parameters: (Parameter | Parameter[])[]) {
@@ -390,7 +397,6 @@ ${noInspect}
 import { Context, Plugin } from '@nuxt/types'
 import { AxiosRequestConfig } from 'axios'
 ${this.importTypes()}
-${typeMatch}
 
 const $${this.inject} = ({ $axios }: Context) => (${object})
 
