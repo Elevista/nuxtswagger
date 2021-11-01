@@ -1,6 +1,6 @@
 /* eslint-disable no-control-regex */
 import { Options } from './index'
-import { camelCase, entries, keys, stringify } from './utils'
+import {camelCase, entries, keys, notNullish, stringify} from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
 import _ from 'lodash'
@@ -21,7 +21,6 @@ const typeMatchMap = {
 }
 const localeCompare = (a: string, b: string) => a.localeCompare(b)
 const entriesCompare = ([a]: any[], [b]: any[]) => localeCompare(a, b)
-const exists = <TValue>(value: TValue | null | undefined): value is TValue => (value ?? null) !== null
 const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnusedLocalSymbols\n'
 const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const replaceAll = (string: string, searchValue: string, replaceValue: string) => string.replace(new RegExp(escapeRegExp(searchValue), 'g'), replaceValue)
@@ -337,7 +336,7 @@ export abstract class TemplateCommon {
     path.sort((a, b) => pathStr.indexOf(a.name) - pathStr.indexOf(b.name))
     const all = (() => {
       const _path = this.options.form === 'underscore' ? path : []
-      const order = [_path, query, body, header, rest, config].flat().filter(exists)
+      const order = [_path, query, body, header, rest, config].flat().filter(notNullish)
       const [required = [], optional = []]: Parameter[][] = []
       for (const parameter of order) {
         parameter.required ? required.push(parameter) : optional.push(parameter)
@@ -347,11 +346,11 @@ export abstract class TemplateCommon {
     if (this.options.form === 'underscore') {
       const tooMany = all.length - (path.length + (body ? 1 : 0)) >= 5
       const order = tooMany ? [path, body, [[...query, ...header]], rest, config] : all
-      const parameters = order.flat().filter(exists)
+      const parameters = order.flat().filter(notNullish)
       return { parameters, path, query, body, config, header, rest }
     } else {
-      const object = [query, header, rest].flat().filter(exists)
-      const parameters = (object.length > 2 ? [body, object, config] : all).filter(exists)
+      const object = [query, header, rest].flat().filter(notNullish)
+      const parameters = (object.length > 2 ? [body, object, config] : all).filter(notNullish)
       return { parameters, path, query, body, config, header, rest }
     }
   }
