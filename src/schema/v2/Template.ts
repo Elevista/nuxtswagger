@@ -1,5 +1,5 @@
-import { Response, Spec } from './Spec'
 import { TemplateCommon, TemplateOptions } from '../../TemplateCommon'
+import { Response, Spec } from './Spec'
 
 export default class Template extends TemplateCommon {
   protected spec: Spec

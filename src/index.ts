@@ -1,17 +1,16 @@
 #!/usr/bin/env node
-import V2 from './schema/v2/Template'
-import V3 from './schema/v3/Template'
-import fetchSpec from './fetchSpec'
-import { join } from 'path'
-import _ from 'lodash'
-import fs from  'fs'
-import mkdirp from 'mkdirp'
-import c from 'chalk'
 import path from 'path'
-const package_json = require('../package.json')
+import fs from 'fs'
+import _ from 'lodash'
+import * as mkdirp from 'mkdirp'
+import c from 'chalk'
+import fetchSpec from './fetchSpec'
+import V3 from './schema/v3/Template'
+import V2 from './schema/v2/Template'
+import { notNullish } from './utils'
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
-const { version } = package_json
+const { version } = require('../package.json')
 
 export interface Options {
   src: string
@@ -31,7 +30,7 @@ const defaultOptions = ({
   pluginsDir = 'plugins',
   pluginName = 'api',
   inject = pluginName,
-  typePath = join(pluginsDir, pluginName, 'types.ts'),
+  typePath = path.join(pluginsDir, pluginName, 'types.ts'),
   basePath = '/v1',
   skipHeader = false,
   form,
@@ -60,7 +59,7 @@ const makeDirs = ({ pluginsDir, typePath }: Options) => {
 }
 
 const generate = async (options: Options) => {
-  if (!options.src) throw Error('No JSON path provided')
+  if (!options.src) throw new Error('No JSON path provided')
   const spec = await fetchSpec(options.src)
   makeDirs(options)
 
@@ -70,7 +69,7 @@ const generate = async (options: Options) => {
   if (('swagger' in spec) && spec.swagger === '2.0') template = new V2(spec, templateOptions)
   if (('openapi' in spec) && parseInt(spec.openapi) === 3) template = new V3(spec, templateOptions)
 
-  if (!template) throw Error('not support')
+  if (!template) throw new Error('not support')
   console.log(c.green(' ✔ create  '), pluginPath)
   fs.writeFileSync(pluginPath, template.plugin())
   console.log(c.blue(' ✔ create  '), options.typePath)

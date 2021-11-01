@@ -1,9 +1,9 @@
 /* eslint-disable no-control-regex */
-import { Options } from './index'
-import {camelCase, entries, keys, notNullish, stringify} from './utils'
+import _ from 'lodash'
+import { camelCase, entries, keys, notNullish, stringify } from './utils'
 import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
-import _ from 'lodash'
+import { Options } from './index'
 type ParameterIn = v2.ParameterIn | v3.ParameterIn | 'body' | '$config'
 interface Parameter { type: string, required: boolean, name: string, valName: string, pos: ParameterIn, description: string }
 type Response = v2.Response | v3.Response
@@ -39,7 +39,7 @@ export abstract class TemplateCommon {
   protected readonly basePath: string
   protected readonly inject: string
   protected readonly skipHeader: boolean
-  protected options: TemplateOptions;
+  protected options: TemplateOptions
 
   protected constructor (spec: Spec, options: TemplateOptions) {
     const { basePath, inject, skipHeader, relTypePath } = options
@@ -254,8 +254,8 @@ export abstract class TemplateCommon {
       if (pathParam && key !== undefined) {
         let p = (params || [])
         const content = deep(pathParam, key, p)
-        p = p.filter((x) => x.name === key)
-        const types = _.uniq(p.map((x) => this.typeDeep(x))).join(' | ') || 'any'
+        p = p.filter(x => x.name === key)
+        const types = _.uniq(p.map(x => this.typeDeep(x))).join(' | ') || 'any'
         const [longestComment = ''] = p.map(x => this.paramsDoc([x]))
           .sort((a, b) => b.length - a.length)
           .map(x => prependText.encode(this.comment(x)))
