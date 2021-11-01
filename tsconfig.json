@@ -6,7 +6,6 @@
     "allowJs": true,
     "outDir": "dist/",
     "esModuleInterop": true,
-    "resolveJsonModule": true,
     "declaration": true,
     "declarationDir": "dist/types",
     "sourceMap": false,

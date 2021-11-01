@@ -4,11 +4,11 @@ import V3 from './schema/v3/Template'
 import fetchSpec from './fetchSpec'
 import { join } from 'path'
 import _ from 'lodash'
-import package_json from '../package.json'
 import fs from  'fs'
 import mkdirp from 'mkdirp'
 import c from 'chalk'
 import path from 'path'
+const package_json = require('../package.json')
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
 const { version } = package_json
