@@ -392,11 +392,12 @@ export abstract class TemplateCommon {
 
   protected pluginFunction (object: string) {
     const { axiosConfig, pluginName } = this.options
-    if (!axiosConfig) return `({ $axios }: Context) => (${object})`
+    const ret = `exposureAxios(${object}, $axios)`
+    if (!axiosConfig) return `({ $axios }: Context) => ${ret}`
     const code = `
 $axios = $axios.create([$config.nuxtswagger].flat().find(x => x?.pluginName === '${pluginName}')?.axiosConfig)
-return ${object}
-`.trimStart().replace(/^/mg, '  ')
+return ${ret}
+`.trim().replace(/^/mg, '  ')
     return `({ $axios, $config }: Context) => {\n${code}\n}`
   }
 
@@ -410,6 +411,7 @@ ${importTypes}
 
 const $${inject} = ${this.pluginFunction(object)}
 
+const exposureAxios = <T, V> (o: T, value: V) => Object.defineProperty(o, '$axios', { value }) as T & { readonly $axios: V }
 declare module '@nuxt/types' {
   interface Context { $${inject}: ReturnType<typeof $${inject}> }
   interface NuxtAppOptions { $${inject}: ReturnType<typeof $${inject}> }
@@ -420,11 +422,7 @@ declare module 'vue/types/vue' {
 declare module 'vuex/types/index' {
   interface Store<S> { $${inject}: ReturnType<typeof $${inject}> }
 }
-
-const plugin: Plugin = (context, inject) => {
-  inject('${inject}', $${inject}(context))
-}
-export default plugin
+export default ((context, inject) => inject('${inject}', $${inject}(context))) as Plugin
 `.trimStart()
   }
 }
