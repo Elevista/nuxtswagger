@@ -93,11 +93,10 @@ export abstract class TemplateCommon {
     const indentProps = maxIndent > 0
     const comment = canComment ? this.makeComment(typeObj) : ''
     const typeDeep = (typeObj: Exclude<TypeDefs, boolean>): string => {
+      const nullable = (type: string): string => ('nullable' in typeObj && typeObj.nullable) ? `${type} | null` : type
       if ('schema' in typeObj) return typeDeep(typeObj.schema)
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
-      if ('enum' in typeObj) {
-        return `(${typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | ')})`
-      }
+      if ('enum' in typeObj) return nullable(typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | '))
       if (!('type' in typeObj)) return 'any'
       if (typeObj.type === 'array') return `Array<${typeDeep(typeObj.items)}>`
       if (typeObj.type === 'object') {
@@ -113,8 +112,8 @@ export abstract class TemplateCommon {
         if (!indentProps) return `{ ${items.join(', ')} }`
         return `{\n${items.join('\n').replace(/^./gm, '  $&')}\n}`
       }
-      if (typeObj.type === 'string' && 'format' in typeObj && typeObj.format === 'binary') return 'File'
-      return typeObj.type
+      if (typeObj.type === 'string' && 'format' in typeObj && typeObj.format === 'binary') return nullable('File')
+      return nullable(typeObj.type)
     }
     return typeDeep(typeObj) + prependText.encode(comment)
   }

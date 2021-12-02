@@ -14,6 +14,7 @@ export type TypeProto<T = string> = {
   title?: T
   example?: T
   default?: T
+  nullable?: boolean
 }
 
 export interface TypeEnum extends TypeProto {
