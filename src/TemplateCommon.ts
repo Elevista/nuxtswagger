@@ -5,7 +5,7 @@ import * as v2 from './schema/v2/Spec'
 import * as v3 from './schema/v3/Spec'
 import { Options } from './index'
 type ParameterIn = v2.ParameterIn | v3.ParameterIn | 'body' | '$config'
-interface Parameter { type: string, required: boolean, name: string, valName: string, pos: ParameterIn, description: string }
+interface Parameter { type: string, required: boolean, name: string, valName: string, pos: ParameterIn, description: string, multipart?: boolean }
 type Response = v2.Response | v3.Response
 type TypeDefs = v2.Types | v2.ParameterTypes | v3.Types | v3.ParameterTypes | Required<v2.TypeObject | v3.TypeObject>['additionalProperties']
 type Spec = v2.Spec | v3.Spec
@@ -40,6 +40,7 @@ export abstract class TemplateCommon {
   protected readonly inject: string
   protected readonly skipHeader: boolean
   protected options: TemplateOptions
+  private hasMultipart = false
 
   protected constructor (spec: Spec, options: TemplateOptions) {
     const { basePath, inject, skipHeader, relTypePath } = options
@@ -92,11 +93,10 @@ export abstract class TemplateCommon {
     const indentProps = maxIndent > 0
     const comment = canComment ? this.makeComment(typeObj) : ''
     const typeDeep = (typeObj: Exclude<TypeDefs, boolean>): string => {
+      const nullable = (type: string): string => ('nullable' in typeObj && typeObj.nullable) ? `${type} | null` : type
       if ('schema' in typeObj) return typeDeep(typeObj.schema)
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
-      if ('enum' in typeObj) {
-        return `(${typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | ')})`
-      }
+      if ('enum' in typeObj) return nullable(typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | '))
       if (!('type' in typeObj)) return 'any'
       if (typeObj.type === 'array') return `Array<${typeDeep(typeObj.items)}>`
       if (typeObj.type === 'object') {
@@ -112,7 +112,8 @@ export abstract class TemplateCommon {
         if (!indentProps) return `{ ${items.join(', ')} }`
         return `{\n${items.join('\n').replace(/^./gm, '  $&')}\n}`
       }
-      return typeObj.type
+      if (typeObj.type === 'string' && 'format' in typeObj && typeObj.format === 'binary') return nullable('File')
+      return nullable(typeObj.type)
     }
     return typeDeep(typeObj) + prependText.encode(comment)
   }
@@ -309,9 +310,11 @@ export abstract class TemplateCommon {
     })
     if (('requestBody' in method) && method.requestBody) {
       const { required = true, content, description = '' } = method.requestBody
-      const { schema } = content['application/json'] || {}
+      const { schema } = content['application/json'] || content['multipart/form-data'] || {}
+      const multipart = !!content['multipart/form-data']
+      if (multipart) this.hasMultipart = true
       const name = '$body'
-      if (schema) ret.push({ name, valName: name, pos: 'body', type: this.typeDeep(schema), required, description })
+      if (schema) ret.push({ name, valName: name, pos: 'body', type: this.typeDeep(schema), required, description, multipart })
     }
     ret.push({ name: '$config', valName: '$config', pos: '$config', type: 'AxiosRequestConfig', required: false, description: '' })
     return this.skipHeader ? ret.filter(x => x.pos !== 'header') : ret
@@ -374,7 +377,10 @@ export abstract class TemplateCommon {
 
     const axiosParams = [`\`${path.replace(/{/g, '${')}\``]
     const hasRequestBody = /post|put|patch/i.test(methodType)
-    if (hasRequestBody) axiosParams.push(String(body?.valName))
+    if (hasRequestBody) {
+      const valName = body?.valName
+      axiosParams.push(String(body?.multipart ? `Multipart(${valName})` : valName))
+    }
     const data = !hasRequestBody && body ? `data: ${body.valName}` : ''
     if (header.length + query.length || data) {
       const join = (arr: Parameter[]) => arr.map(x =>
@@ -402,7 +408,19 @@ return ${ret}
   }
 
   protected pluginTemplate ({ object }: { object: string }) {
-    const { importTypes, inject } = this
+    const { importTypes, inject, hasMultipart } = this
+    const multipart = hasMultipart
+      ? `const Multipart = (o: any) => {
+  if(!(o instanceof Object)) return o
+  const formData = new FormData()
+  for (const [key, v] of Object.entries(o)) {
+    const value = v instanceof Blob? v :  String(v)
+    const fileName = v instanceof File ? v.name : undefined
+    formData.append(key, value, fileName)
+  }
+  return formData
+}`
+      : ''
     return `
 ${noInspect}
 import { Context, Plugin } from '@nuxt/types'
@@ -410,7 +428,7 @@ import { AxiosRequestConfig } from 'axios'
 ${importTypes}
 
 const $${inject} = ${this.pluginFunction(object)}
-
+${multipart}
 const exposureAxios = <T, V> (o: T, value: V) => Object.defineProperty(o, '$axios', { value }) as T & { readonly $axios: V }
 declare module '@nuxt/types' {
   interface Context { $${inject}: ReturnType<typeof $${inject}> }

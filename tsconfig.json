@@ -9,7 +9,7 @@
     "declaration": true,
     "declarationDir": "./types",
     "sourceMap": false,
-    "lib": ["ESNext"],
+    "lib": ["ESNext", "dom"],
     "types": [
       "@types/node",
       "@types/mkdirp",
