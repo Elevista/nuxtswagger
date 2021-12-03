@@ -86,6 +86,8 @@ nuxtswagger argument1 --option1 value1 --option2 value2
 
 ### Set options using `nuxt.config`
 
+*v1.2+*
+
 ```js
 export default {
   // support array

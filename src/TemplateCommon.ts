@@ -98,7 +98,7 @@ export abstract class TemplateCommon {
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
       if ('enum' in typeObj) return nullable(typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | '))
       if (!('type' in typeObj)) return 'any'
-      if (typeObj.type === 'array') return `Array<${typeDeep(typeObj.items)}>`
+      if (typeObj.type === 'array') return `Array<${typeDeep(typeObj.items)}>`.replace('Array<File>', 'File[] | FileList')
       if (typeObj.type === 'object') {
         const { properties, additionalProperties, required = [] } = typeObj
         const entries: [string, Exclude<TypeDefs, boolean>][] = properties ? Object.entries(properties) : []
@@ -411,12 +411,17 @@ return ${ret}
     const { importTypes, inject, hasMultipart } = this
     const multipart = hasMultipart
       ? `const Multipart = (o: any) => {
-  if(!(o instanceof Object)) return o
+  if (!(o instanceof Object)) return o
   const formData = new FormData()
   for (const [key, v] of Object.entries(o)) {
-    const value = v instanceof Blob? v :  String(v)
-    const fileName = v instanceof File ? v.name : undefined
-    formData.append(key, value, fileName)
+    const append = (v: any) => formData.append(key, v instanceof Blob ? v : String(v))
+    const files = (files: File | File[] | FileList) => {
+      const list = files instanceof File ? [files] : files
+      for (let i = 0; i < list.length; i++) formData.append(key, list[i], list[i].name)
+    }
+    if (v instanceof Array) v.forEach(item => (item instanceof File) ? files(item) : append(item))
+    else if (v instanceof FileList || v instanceof File) files(v)
+    else append(v)
   }
   return formData
 }`
