@@ -25,6 +25,7 @@ const noInspect = '/* eslint-disable */\n// noinspection ES6UnusedImports,JSUnus
 const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const replaceAll = (string: string, searchValue: string, replaceValue: string) => string.replace(new RegExp(escapeRegExp(searchValue), 'g'), replaceValue)
 const genericVar = (i: number, vars = ['T', 'U', 'V']) => i < vars.length ? vars[i] : `T${i + 1 - vars.length}`
+const Multipart = '$multipart'
 
 const prependText = {
   encode: (str: string) => str && `\x00${str.replace(/\n/mg, '\x00')}\x00`,
@@ -379,7 +380,7 @@ export abstract class TemplateCommon {
     const hasRequestBody = /post|put|patch/i.test(methodType)
     if (hasRequestBody) {
       const valName = body?.valName
-      axiosParams.push(String(body?.multipart ? `Multipart(${valName})` : valName))
+      axiosParams.push(String(body?.multipart ? `${Multipart}(${valName})` : valName))
     }
     const data = !hasRequestBody && body ? `data: ${body.valName}` : ''
     if (header.length + query.length || data) {
@@ -410,7 +411,7 @@ return ${ret}
   protected pluginTemplate ({ object }: { object: string }) {
     const { importTypes, inject, hasMultipart } = this
     const multipart = hasMultipart
-      ? `const Multipart = (o: any) => {
+      ? `const ${Multipart} = (o: any) => {
   if (!(o instanceof Object)) return o
   const formData = new FormData()
   for (const [key, v] of Object.entries(o)) {
