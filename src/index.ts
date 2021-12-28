@@ -101,10 +101,14 @@ const run = async function () {
   const cliOption = argvToOptions(argv)
   const jsonOption = optionFromJson()
   const configOptions = await optionsFromNuxtConfig()
-  const options = _.uniqBy([configOptions, cliOption, jsonOption].flat().filter(notNullish), x => x.pluginName)
-  for (const option of options) {
-    await generate(defaultOptions(_.defaults({}, cliOption, option, jsonOption)))
+  let partialOptions = [configOptions, cliOption, jsonOption].flat().filter(notNullish)
+  if (cliOption.pluginName || cliOption.src) {
+    const { pluginName } = defaultOptions()
+    partialOptions = partialOptions.filter(x => (x.pluginName || pluginName) === (cliOption.pluginName || pluginName))
   }
+  const options = _.uniqBy(partialOptions.map(option => defaultOptions(_.defaults({}, cliOption, option, jsonOption)))
+    , x => x.pluginName)
+  for (const option of options) await generate(option)
 }
 run()
 
