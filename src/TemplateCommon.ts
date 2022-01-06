@@ -68,7 +68,7 @@ export abstract class TemplateCommon {
   protected comment (comment?: string | number | boolean | object, onlyText = false) {
     if (comment === undefined) return ''
     if (comment === Object(comment)) comment = JSON.stringify(comment)
-    const string = comment.toString().trim().replace(/\//g, '∕')
+    const string = comment.toString().trim().replace(/<br\/?>(\s)*/gi, '\n$1').replace(/\//g, '∕')
     if (onlyText) return string
     const lines = string.split('\n')
     if (!string) return ''
@@ -119,9 +119,9 @@ export abstract class TemplateCommon {
     return typeDeep(typeObj) + prependText.encode(comment)
   }
 
-  protected fixKeys<T extends object> (o: T): T {
+  protected fixKeys<T extends object> (o?: T): T {
     const ret: any = {}
-    Object.entries(o).forEach(([key, value]) => { ret[this.fixTypeName(key)] = value })
+    if (o) Object.entries(o).forEach(([key, value]) => { ret[this.fixTypeName(key)] = value })
     return ret
   }
 
