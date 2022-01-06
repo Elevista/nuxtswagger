@@ -1,7 +1,7 @@
 /* eslint-disable no-use-before-define */
 type PrimitiveTypes = 'string' | 'number' | 'integer' | 'boolean'
-type TypeNames = PrimitiveTypes | 'array' | 'object'
-export type ParameterIn = 'header' | 'body' | 'path' | 'query' | 'cookie'
+type TypeNames = PrimitiveTypes | 'array' | 'object' | 'file'
+export type ParameterIn = 'header' | 'body' | 'path' | 'query' | 'cookie' | 'formData'
 export type Formats = 'date' | 'date-time' | 'password' | 'byte' | 'binary'
 export enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
 export interface Ref {
@@ -52,7 +52,14 @@ export interface TypeNumber extends TypeProto<number> {
   maximum?: number
 }
 
-export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | Ref)
+export interface TypeFile extends TypeProto {
+  type: 'file'
+  additionalProperties?: boolean | Types | {}
+  properties?: { [propertyName: string]: Types }
+  required?: Array<string>
+}
+
+export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | TypeFile | Ref)
 
 export interface Response {
   description?: string
@@ -93,7 +100,8 @@ export type ParameterFormat = ParameterCommon & TypeFormat
 export type ParameterBoolean = ParameterCommon & TypeBoolean
 export type ParameterString = ParameterCommon & TypeString
 export type ParameterNumber = ParameterCommon & TypeNumber
-export type ParameterTypes = (ParameterEnum | ParameterArray | ParameterObject | ParameterFormat | ParameterBoolean | ParameterString | ParameterNumber | ParameterSchema)
+export type ParameterFile = ParameterCommon & TypeFile
+export type ParameterTypes = (ParameterEnum | ParameterArray | ParameterObject | ParameterFormat | ParameterBoolean | ParameterString | ParameterNumber | ParameterSchema | ParameterFile)
 
 export interface Definitions {
   [definition: string]: Types
