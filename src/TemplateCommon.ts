@@ -99,6 +99,7 @@ export abstract class TemplateCommon {
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
       if ('enum' in typeObj) return nullable(typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | '))
       if (!('type' in typeObj)) return 'any'
+      if (typeObj.type === 'file') return 'File'
       if (typeObj.type === 'array') return `Array<${typeDeep(typeObj.items)}>`.replace('Array<File>', 'File[] | FileList')
       if (typeObj.type === 'object') {
         const { properties, additionalProperties, required = [] } = typeObj
@@ -307,6 +308,7 @@ export abstract class TemplateCommon {
       const type = this.typeDeep(parameter)
       let { in: pos, required = /body|path/.test(pos), name, description = '' } = parameter
       if (pos === 'body') name = '$body'
+      if (pos === 'formData') this.hasMultipart = true
       return { name, valName: camelCase(name), pos, type, required, description }
     })
     if (('requestBody' in method) && method.requestBody) {
@@ -323,7 +325,7 @@ export abstract class TemplateCommon {
 
   protected groupParameters (pathStr: string, method: Method) {
     const parameters = this.convertParameters(method)
-    const [path = [], query = [], header = [], rest = []]: Parameter[][] = []
+    const [path = [], query = [], header = [], formData = [], rest = []]: Parameter[][] = []
     let body: Parameter | undefined
     let config: Parameter | undefined
     for (const parameter of parameters) {
@@ -333,6 +335,7 @@ export abstract class TemplateCommon {
       else if (pos === 'query') type = query
       else if (pos === 'body') body = parameter
       else if (pos === 'header') type = header
+      else if (pos === 'formData') type = formData
       else if (pos === '$config') config = parameter
       else type = rest
       type.push(parameter)
@@ -340,22 +343,20 @@ export abstract class TemplateCommon {
     path.sort((a, b) => pathStr.indexOf(a.name) - pathStr.indexOf(b.name))
     const all = (() => {
       const _path = this.options.form === 'underscore' ? path : []
-      const order = [_path, query, body, header, rest, config].flat().filter(notNullish)
+      const order = [_path, query, body, formData, header, rest, config].flat().filter(notNullish)
       const [required = [], optional = []]: Parameter[][] = []
-      for (const parameter of order) {
-        parameter.required ? required.push(parameter) : optional.push(parameter)
-      }
+      for (const parameter of order) (parameter.required ? required : optional).push(parameter)
       return [required, optional].flat()
     })()
     if (this.options.form === 'underscore') {
       const tooMany = all.length - (path.length + (body ? 1 : 0)) >= 5
-      const order = tooMany ? [path, body, [[...query, ...header]], rest, config] : all
+      const order = tooMany ? [path, body, [[query, formData, header].flat()], rest, config] : all
       const parameters = order.flat().filter(notNullish)
-      return { parameters, path, query, body, config, header, rest }
+      return { parameters, path, query, body, formData, config, header, rest }
     } else {
-      const object = [query, header, rest].flat().filter(notNullish)
+      const object = [query, formData, header, rest].flat().filter(notNullish)
       const parameters = (object.length > 2 ? [body, object, config] : all).filter(notNullish)
-      return { parameters, path, query, body, config, header, rest }
+      return { parameters, path, query, body, formData, config, header, rest }
     }
   }
 
@@ -374,15 +375,23 @@ export abstract class TemplateCommon {
 
   protected axiosCall (path: string, methodType: MethodTypes, method: Method) {
     const { responses } = method
-    const { parameters, body, config, header, query } = this.groupParameters(path, method)
+    const { parameters, body, formData, config, header, query } = this.groupParameters(path, method)
 
     const axiosParams = [`\`${path.replace(/{/g, '${')}\``]
-    const hasRequestBody = /post|put|patch/i.test(methodType)
-    if (hasRequestBody) {
-      const valName = body?.valName
-      axiosParams.push(String(body?.multipart ? `${Multipart}(${valName})` : valName))
+
+    let bodyParam = ''
+    if (formData.length) {
+      const valNames = formData.map(x => x.valName).join(', ')
+      bodyParam = `${Multipart}({ ${valNames} })`
+    } else if (body) {
+      const { valName, multipart } = body
+      bodyParam = multipart ? `${Multipart}(${valName})` : valName
     }
-    const data = !hasRequestBody && body ? `data: ${body.valName}` : ''
+
+    const hasRequestBody = /post|put|patch/i.test(methodType)
+    if (hasRequestBody) axiosParams.push(bodyParam || 'undefined')
+    const data = (hasRequestBody || !bodyParam) ? '' : `data: ${bodyParam}`
+
     if (header.length + query.length || data) {
       const join = (arr: Parameter[]) => arr.map(x =>
         x.name === x.valName ? x.name : `'${x.name}': ${x.valName}`,
@@ -415,7 +424,7 @@ return ${ret}
   if (!(o instanceof Object)) return o
   const formData = new FormData()
   for (const [key, v] of Object.entries(o)) {
-    const append = (v: any) => formData.append(key, v instanceof Blob ? v : String(v))
+    const append = (v: any) => v !== undefined && formData.append(key, v instanceof Blob ? v : String(v))
     const files = (files: File | File[] | FileList) => {
       const list = files instanceof File ? [files] : files
       for (let i = 0; i < list.length; i++) formData.append(key, list[i], list[i].name)
