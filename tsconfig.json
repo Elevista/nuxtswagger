@@ -5,10 +5,16 @@
     "target": "ES2019",
     "allowJs": true,
     "outDir": "dist/",
+    "esModuleInterop": true,
     "declaration": true,
-    "declarationDir": "dist/types",
+    "declarationDir": "./types",
     "sourceMap": false,
-    "types": ["@types/node"],
+    "lib": ["ESNext", "dom"],
+    "types": [
+      "@types/node",
+      "@types/mkdirp",
+      "@nuxtjs/axios"
+    ],
     "strict": true
   },
   "include": ["src/*"],

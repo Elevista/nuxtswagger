@@ -3,5 +3,7 @@
 node_modules
 plugins
 dist
+types
 *.tgz
 /package*
+/nuxt.config.*

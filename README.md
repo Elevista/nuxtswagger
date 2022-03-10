@@ -1,7 +1,8 @@
 # NuxTSwagger
 Nuxt-TS-Swagger plugin generator CLI
 
-[![JavaScript Style Guide](https://img.shields.io/badge/code_style-standard-brightgreen.svg?style=flat-square)](https://standardjs.com)  [![npm package](https://img.shields.io/npm/v/nuxtswagger.svg?maxAge=2592000&style=flat-square)](https://www.npmjs.com/package/nuxtswagger)
+[![npm package](https://img.shields.io/npm/v/nuxtswagger.svg?maxAge=2592000&style=flat-square)](https://www.npmjs.com/package/nuxtswagger)
+[![github stars](https://img.shields.io/github/stars/Elevista/nuxtswagger?style=social)](https://github.com/Elevista/nuxtswagger)
 
 ## Installation
 ```sh
@@ -15,7 +16,7 @@ npm i -D nuxtswagger
 ## Basic Usage
 in Nuxt project directory
 ```sh
-nuxtswagger https://api.server.foo/swagger.json
+npx nuxtswagger https://api.server.foo/swagger.json
 ```
 in `nuxt.config.js`
 ```js
@@ -51,6 +52,9 @@ $api.foo.bar.get()
 ```
 
 ## Options
+
+options priority : command line > `nuxt.config` > `package.json`
+
 ```sh
 nuxtswagger argument1 --option1 value1 --option2 value2
 ```
@@ -74,11 +78,41 @@ nuxtswagger argument1 --option1 value1 --option2 value2
     "swagger": "nuxtswagger"
   },
   "nuxtswagger": {
-    "src": "https://api.server.foo/swagger.json",
-    "pluginName": "foo"
+    "pluginName": "foo",
+    "src": "https://api.server.foo/swagger.json"
   }
 }
 ```
+
+### Set options using `nuxt.config`
+
+*v1.2+*
+
+```js
+export default {
+  // support array
+  publicRuntimeConfig: {
+    nuxtswagger: {
+      pluginName: 'foo',
+      // AxiosRequestConfig?
+      axiosConfig: { baseURL: 'https://api-stage.server.foo' }
+    }
+  }
+}
+```
+
+#### `tsconfig.json`
+
+```json
+{
+  "compilerOptions": {
+    "types": ["nuxtswagger/types"]
+  }
+}
+```
+
+
+
 and `npm run swagger` or `npx nuxtswagger`
 
 
