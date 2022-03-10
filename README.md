@@ -16,7 +16,7 @@ npm i -D nuxtswagger
 ## Basic Usage
 in Nuxt project directory
 ```sh
-nuxtswagger https://api.server.foo/swagger.json
+npx nuxtswagger https://api.server.foo/swagger.json
 ```
 in `nuxt.config.js`
 ```js
