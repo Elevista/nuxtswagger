@@ -1,6 +1,6 @@
 {
   "name": "nuxtswagger",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "description": "Nuxt-TS-Swagger plugin generator CLI",
   "bin": {
     "nuxtswagger": "dist/index.js"
