@@ -15,6 +15,7 @@ export type TypeProto<T = string> = {
   example?: T
   default?: T
   nullable?: boolean
+  description?: string
 }
 
 export interface TypeEnum extends TypeProto {
@@ -53,7 +54,9 @@ export interface TypeNumber extends TypeProto<number> {
   maximum?: number
 }
 
-export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | Ref)
+export type TypeOf = { description?: string } & ({ allOf: Types[] } | { oneOf: Types[] })
+
+export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | TypeOf | Ref)
 
 export type Example = {
   summary?: string
