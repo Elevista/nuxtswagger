@@ -1,6 +1,6 @@
 /* eslint-disable no-use-before-define */
 type PrimitiveTypes = 'string' | 'number' | 'integer' | 'boolean'
-type TypeNames = PrimitiveTypes | 'array' | 'object'
+type TypeNames = PrimitiveTypes | 'array' | 'object' | 'of'
 export type ParameterIn = 'query'| 'header'| 'path' | 'cookie'
 export type Formats = 'date' | 'date-time' | 'password' | 'byte' | 'binary'
 export enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
@@ -53,7 +53,14 @@ export interface TypeNumber extends TypeProto<number> {
   maximum?: number
 }
 
-export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | Ref)
+export interface TypeOf extends TypeProto {
+  type: 'of'
+  description?: string;
+  allOf?: Array<Types>;
+  oneOf?: Array<Types>;
+}
+
+export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | TypeOf | Ref)
 
 export type Example = {
   summary?: string

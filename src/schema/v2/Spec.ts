@@ -1,6 +1,6 @@
 /* eslint-disable no-use-before-define */
 type PrimitiveTypes = 'string' | 'number' | 'integer' | 'boolean'
-type TypeNames = PrimitiveTypes | 'array' | 'object' | 'file'
+type TypeNames = PrimitiveTypes | 'array' | 'object' | 'file' | 'of'
 export type ParameterIn = 'header' | 'body' | 'path' | 'query' | 'cookie' | 'formData'
 export type Formats = 'date' | 'date-time' | 'password' | 'byte' | 'binary'
 export enum MethodTypes {get = 'get', post = 'post', put = 'put', patch = 'patch', delete = 'delete', head = 'head', options = 'options'}
@@ -59,7 +59,14 @@ export interface TypeFile extends TypeProto {
   required?: Array<string>
 }
 
-export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | TypeFile | Ref)
+export interface TypeOf extends TypeProto {
+  type: 'of',
+  description?: string;
+  allOf?: Array<Types>;
+  oneOf?: Array<Types>;
+}
+
+export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | TypeFile | TypeOf | Ref)
 
 export interface Response {
   description?: string
