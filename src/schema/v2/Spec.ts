@@ -14,6 +14,7 @@ export type TypeProto<T = string> = {
   title?: T;
   example?: T
   default?: T
+  description?: string
 }
 
 export interface TypeEnum extends TypeProto {
@@ -59,12 +60,7 @@ export interface TypeFile extends TypeProto {
   required?: Array<string>
 }
 
-export interface TypeOf extends TypeProto {
-  type: 'of',
-  description?: string;
-  allOf?: Array<Types>;
-  oneOf?: Array<Types>;
-}
+export type TypeOf = { description?: string } & { allOf: Types[] }
 
 export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | TypeFile | TypeOf | Ref)
 

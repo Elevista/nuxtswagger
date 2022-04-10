@@ -97,14 +97,8 @@ export abstract class TemplateCommon {
       const nullable = (type: string): string => ('nullable' in typeObj && typeObj.nullable) ? `${type} | null` : type
       if ('schema' in typeObj) return typeDeep(typeObj.schema)
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
-      if ('allOf' in typeObj) {
-        const items = typeObj.allOf.map(obj => typeDeep(obj))
-        return `${items.join(' & ').replace(/^./gm, '$&')}`
-      }
-      if ('oneOf' in typeObj) {
-        const items = typeObj.oneOf.map(obj => typeDeep(obj))
-        return `${items.join(' | ').replace(/^./gm, '$&')}`
-      }
+      if ('allOf' in typeObj) return typeObj.allOf.map(typeDeep).join(' & ')
+      if ('oneOf' in typeObj) return typeObj.oneOf.map(typeDeep).join(' | ')
       if ('enum' in typeObj) return nullable(typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | '))
       if (!('type' in typeObj)) return 'any'
       if (typeObj.type === 'file') return 'File'
@@ -230,7 +224,8 @@ export abstract class TemplateCommon {
   }
 
   protected pathMethodList (): [string, string, Methods][] {
-    const { basePath: base, spec: { paths } } = this
+    const { basePath: base, spec } = this
+    const paths: { [k in string]: Methods } = spec.paths
     return entries(paths).sort(entriesCompare).map(([path, methods]) => [
       path,
       (path.startsWith(`${base}/`) ? path.replace(base, '') : path)
