@@ -97,6 +97,33 @@ export abstract class TemplateCommon {
       const nullable = (type: string): string => ('nullable' in typeObj && typeObj.nullable) ? `${type} | null` : type
       if ('schema' in typeObj) return typeDeep(typeObj.schema)
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
+      if ('allOf' in typeObj) return typeObj.allOf.map(typeDeep).join(' & ')
+      if ('oneOf' in typeObj) return typeObj.oneOf.map(typeDeep).join(' | ')
+      if ('anyOf' in typeObj) {
+        const refs = typeObj.anyOf.filter(x => '$ref' in x).map(typeDeep).filter(x => x !== 'any')
+        const notRefs = typeObj.anyOf.filter(x => !('$ref' in x)).map(typeDeep)
+        // use partial if combinations are too many
+        if (refs.length > 4) return [notRefs, `Partial<${refs.join(' & ')}>`].flat().join(' | ')
+
+        const combinations = function (str1: string[]) {
+          const array1 = []
+          for (let x = 0, y = 1; x < str1.length; x++, y++) {
+            array1[x] = str1.slice(x, y)
+          }
+          const combinations = []
+          const len = Math.pow(2, array1.length)
+
+          for (let i = 0; i < len; i++) {
+            const temp = []
+            for (let j = 0; j < array1.length; j++) {
+              if ((i & Math.pow(2, j))) temp.push(...array1[j])
+            }
+            if (temp.length) combinations.push(temp.length > 1 ? `(${temp.join(' & ')})` : temp.join(''))
+          }
+          return combinations
+        }
+        return [notRefs, combinations(refs)].flat().join(' | ')
+      }
       if ('enum' in typeObj) return nullable(typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | '))
       if (!('type' in typeObj)) return 'any'
       if (typeObj.type === 'file') return 'File'
@@ -106,9 +133,11 @@ export abstract class TemplateCommon {
         const entries: [string, Exclude<TypeDefs, boolean>][] = properties ? Object.entries(properties) : []
         if (additionalProperties) entries.push(['[key in any]', additionalProperties])
         if (!entries.length) return 'any'
+        const validIdentifier = /^([_$a-zA-Z\xA0-\uFFFF][_$a-zA-Z0-9\xA0-\uFFFF]*|\[.*])$/
         const items = entries.map(([name, value]) => {
           const is = { required: false, ...value }
           const optional = (is.required || required.includes(name)) ? '' : '?'
+          if (!validIdentifier.test(name)) name = `'${name}'`
           return `${name + optional}: ${this.typeDeep(value, maxIndent - 1)}`
         })
         if (!indentProps) return `{ ${items.join(', ')} }`
@@ -222,7 +251,8 @@ export abstract class TemplateCommon {
   }
 
   protected pathMethodList (): [string, string, Methods][] {
-    const { basePath: base, spec: { paths } } = this
+    const { basePath: base, spec } = this
+    const paths: { [k in string]: Methods } = spec.paths
     return entries(paths).sort(entriesCompare).map(([path, methods]) => [
       path,
       (path.startsWith(`${base}/`) ? path.replace(base, '') : path)
@@ -304,13 +334,14 @@ export abstract class TemplateCommon {
 
   protected convertParameters (method: Method): Parameter[] {
     const { parameters = [] } = method
-    const ret = parameters.map((parameter): Parameter => {
+    const ret = parameters.map((parameter): Parameter | undefined => {
+      if (!parameter.name) return undefined
       const type = this.typeDeep(parameter)
       let { in: pos, required = /body|path/.test(pos), name, description = '' } = parameter
       if (pos === 'body') name = '$body'
       if (pos === 'formData') this.hasMultipart = true
       return { name, valName: camelCase(name), pos, type, required, description }
-    })
+    }).filter(notNullish)
     if (('requestBody' in method) && method.requestBody) {
       const { required = true, content, description = '' } = method.requestBody
       const { schema } = content['application/json'] || content['multipart/form-data'] || {}
