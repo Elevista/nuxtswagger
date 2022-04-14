@@ -108,9 +108,11 @@ export abstract class TemplateCommon {
         const entries: [string, Exclude<TypeDefs, boolean>][] = properties ? Object.entries(properties) : []
         if (additionalProperties) entries.push(['[key in any]', additionalProperties])
         if (!entries.length) return 'any'
+        const validIdentifier = /^([_$a-zA-Z\xA0-\uFFFF][_$a-zA-Z0-9\xA0-\uFFFF]*|\[.*])$/
         const items = entries.map(([name, value]) => {
           const is = { required: false, ...value }
           const optional = (is.required || required.includes(name)) ? '' : '?'
+          if (!validIdentifier.test(name)) name = `'${name}'`
           return `${name + optional}: ${this.typeDeep(value, maxIndent - 1)}`
         })
         if (!indentProps) return `{ ${items.join(', ')} }`
