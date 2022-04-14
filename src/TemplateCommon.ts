@@ -99,6 +99,31 @@ export abstract class TemplateCommon {
       if ('$ref' in typeObj) return (typeObj.$ref in this.schemas) ? typeObj.$ref : 'any'
       if ('allOf' in typeObj) return typeObj.allOf.map(typeDeep).join(' & ')
       if ('oneOf' in typeObj) return typeObj.oneOf.map(typeDeep).join(' | ')
+      if ('anyOf' in typeObj) {
+        const refs = typeObj.anyOf.filter(x => '$ref' in x).map(typeDeep).filter(x => x !== 'any')
+        const notRefs = typeObj.anyOf.filter(x => !('$ref' in x)).map(typeDeep)
+        // use partial if combinations are too many
+        if (refs.length > 4) return [notRefs, `Partial<${refs.join(' & ')}>`].flat().join(' | ')
+
+        const combinations = function (str1: string[]) {
+          const array1 = []
+          for (let x = 0, y = 1; x < str1.length; x++, y++) {
+            array1[x] = str1.slice(x, y)
+          }
+          const combinations = []
+          const len = Math.pow(2, array1.length)
+
+          for (let i = 0; i < len; i++) {
+            const temp = []
+            for (let j = 0; j < array1.length; j++) {
+              if ((i & Math.pow(2, j))) temp.push(...array1[j])
+            }
+            if (temp.length) combinations.push(temp.length > 1 ? `(${temp.join(' & ')})` : temp.join(''))
+          }
+          return combinations
+        }
+        return [notRefs, combinations(refs)].flat().join(' | ')
+      }
       if ('enum' in typeObj) return nullable(typeObj.enum.map(x => JSON.stringify(x).replace(/"/g, '\'')).join(' | '))
       if (!('type' in typeObj)) return 'any'
       if (typeObj.type === 'file') return 'File'

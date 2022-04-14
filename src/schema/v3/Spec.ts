@@ -54,7 +54,7 @@ export interface TypeNumber extends TypeProto<number> {
   maximum?: number
 }
 
-export type TypeOf = { description?: string } & ({ allOf: Types[] } | { oneOf: Types[] })
+export type TypeOf = { description?: string } & ({ allOf: Types[] } | { oneOf: Types[] } | { anyOf: Types[] })
 
 export type Types = (TypeEnum | TypeArray | TypeObject | TypeFormat | TypeBoolean | TypeString | TypeNumber | TypeOf | Ref)
 
