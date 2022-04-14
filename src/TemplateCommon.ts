@@ -307,13 +307,14 @@ export abstract class TemplateCommon {
 
   protected convertParameters (method: Method): Parameter[] {
     const { parameters = [] } = method
-    const ret = parameters.map((parameter): Parameter => {
+    const ret = parameters.map((parameter): Parameter | undefined => {
+      if (!parameter.name) return undefined
       const type = this.typeDeep(parameter)
       let { in: pos, required = /body|path/.test(pos), name, description = '' } = parameter
       if (pos === 'body') name = '$body'
       if (pos === 'formData') this.hasMultipart = true
       return { name, valName: camelCase(name), pos, type, required, description }
-    })
+    }).filter(notNullish)
     if (('requestBody' in method) && method.requestBody) {
       const { required = true, content, description = '' } = method.requestBody
       const { schema } = content['application/json'] || content['multipart/form-data'] || {}
