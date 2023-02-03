@@ -273,6 +273,10 @@ export abstract class TemplateCommon {
         _.set(map, [paths, methodType].flat(), item)
       })
     })
+    if (map['']) {
+      map['\'\''] = map['']
+      delete map['']
+    }
     const mapValues = <T, U>(obj: { [s: string]: T }, mapFn: (v: T, key?: string) => U): { [s: string]: U } =>
       Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, mapFn(value, key)]))
     const deep = (obj: Map, key?: string, params?: Parameter[]) => {
