@@ -137,7 +137,7 @@ export abstract class TemplateCommon {
         const items = entries.map(([name, value]) => {
           const is = { required: false, ...value }
           const optional = (is.required || required.includes(name)) ? '' : '?'
-          if (!validIdentifier.test(name)) name = `'${name}'`
+          if (!validIdentifier.test(name)) name = `'${name.replace(/'/g, '\\\'')}'`
           return `${name + optional}: ${this.typeDeep(value, maxIndent - 1)}`
         })
         if (!indentProps) return `{ ${items.join(', ')} }`
@@ -273,6 +273,10 @@ export abstract class TemplateCommon {
         _.set(map, [paths, methodType].flat(), item)
       })
     })
+    if (map['']) {
+      map['\'\''] = map['']
+      delete map['']
+    }
     const mapValues = <T, U>(obj: { [s: string]: T }, mapFn: (v: T, key?: string) => U): { [s: string]: U } =>
       Object.fromEntries(Object.entries(obj).map(([key, value]) => [key, mapFn(value, key)]))
     const deep = (obj: Map, key?: string, params?: Parameter[]) => {
