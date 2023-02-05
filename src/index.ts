@@ -47,10 +47,14 @@ const loadNuxtConfig = async () => {
   }
 }
 const optionsFromNuxtConfig = () => loadNuxtConfig().then(config => {
-  let { publicRuntimeConfig } = config || {}
-  if (!publicRuntimeConfig) return
+  let { publicRuntimeConfig, privateRuntimeConfig } = config || {}
+  const keyBy = (options?: Partial<Options> | Partial<Options>[]) => _.keyBy([options].filter(notNullish).flat(), x => x.pluginName)
   if (typeof publicRuntimeConfig === 'function') publicRuntimeConfig = publicRuntimeConfig(process.env)
-  return [publicRuntimeConfig?.nuxtswagger].filter(notNullish).flat()
+  if (typeof privateRuntimeConfig === 'function') privateRuntimeConfig = privateRuntimeConfig(process.env)
+  const publicConfigs = keyBy(publicRuntimeConfig?.nuxtswagger)
+  const privateConfigs = keyBy(privateRuntimeConfig?.nuxtswagger)
+  const names = _.uniq([Object.keys(publicConfigs), Object.keys(privateConfigs)].flat())
+  return names.map(name => _.merge({}, publicConfigs[name], privateConfigs[name])) as Partial<Options>[]
 })
 
 const optionFromJson = (): Partial<CliOptions> => {
