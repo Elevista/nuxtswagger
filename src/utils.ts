@@ -21,9 +21,10 @@ export const stringify = (obj: any, space = '  ', keepString = false) => {
         : str
     }
     if (node instanceof Array) return `[\n${node.map(x => indent + deep(x, depth)).join(',\n')}\n${padEnd}]`
+    const getValidObjectKey = (key: string) => /\d/.test(key) ? `'${key}'` : key
     return `{\n${
       Object.entries(node).map(([key, value]) =>
-          typeof value === 'function' ? deep(value, depth) : `${key}: ${deep(value, depth)}`,
+          typeof value === 'function' ? deep(value, depth) : `${getValidObjectKey(key)}: ${deep(value, depth)}`,
       ).map(x => indent + x).join(',\n')
     }\n${padEnd}}`
   }
