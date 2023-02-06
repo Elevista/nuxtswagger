@@ -1,5 +1,5 @@
 import { V2T, V3T, V2spec, V3spec, TemplateCommon } from 'tswagger'
-import { Options } from './cli'
+import { NuxTSwaggerOptions as Options } from './index'
 export type NuxtTemplateOptions = Options & { relTypePath: string }
 
 interface NuxtTemplate extends TemplateCommon {

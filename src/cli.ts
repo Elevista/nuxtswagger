@@ -5,26 +5,13 @@ import _ from 'lodash'
 import * as mkdirp from 'mkdirp'
 import c from 'chalk'
 import { NuxtConfig } from '@nuxt/types'
-import { AxiosRequestConfig } from 'axios'
 import { fetchSpec, notNullish } from 'tswagger'
 import { V2, V3 } from './TemplateNuxt'
+import { NuxTSwaggerCliOptions as CliOptions, NuxTSwaggerOptions as Options } from './index'
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
 const { version } = require('../package.json')
 if (!process.env.NODE_ENV) process.env.NODE_ENV = 'development'
-
-export interface CliOptions {
-  src: string
-  pluginsDir: string
-  pluginName: string
-  inject: string
-  typePath: string
-  basePath: string
-  skipHeader: boolean
-  form?: 'underscore'
-}
-export type Options = CliOptions & { axiosConfig?: AxiosRequestConfig }
-
 interface Argv extends Partial<CliOptions> { _: [string?] }
 const argvToOptions = ({ _: [$1], src = $1, ...rest }: Argv): Partial<CliOptions> => ({ src, ...rest })
 const defaultOptions = ({
@@ -113,9 +100,3 @@ const run = async function () {
   for (const option of options) await generate(option)
 }
 run()
-
-declare module '@nuxt/types/config/runtime' {
-  interface NuxtRuntimeConfig {
-    nuxtswagger?: Partial<Options> | Partial<Options>[]
-  }
-}
