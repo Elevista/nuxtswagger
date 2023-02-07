@@ -59,24 +59,21 @@ options priority : command line > `nuxt.config` > `package.json`
 nuxtswagger argument1 --option1 value1 --option2 value2
 ```
 
-| option | description | default | example |
-| --- | --- | --- | --- |
-| (first argument) | Swagger schema JSON path | (required) | `http://..` or `./foo/swagger.json`  |
-| `src` | same as first argument | first argument | same as above  |
-| `plugins-dir` | Nuxt plugins directory | `plugins` |  |
-| `plugin-name` | Name for generated plugin | `api` |  |
-| `inject` | Nuxt plugin inject key | `{plugin-name}` |  |
-| `type-path` | Path for scheme type file | `{plugins-dir}/{plugin-name}/{types.ts}` | `./types/swagger.d.ts` |
-| `base-path` | base path | `/v1` | `/v2` |
-| `skip-header` | Ignore parameter in header | `false` | `true` |
-| `form` | Path param interface mode | (undefined) | `underscore` |
+| option           | description                | default                                  | example                             |
+|------------------|----------------------------|------------------------------------------|-------------------------------------|
+| (first argument) | Swagger schema JSON path   | (required)                               | `http://..` or `./foo/swagger.json` |
+| `src`            | same as first argument     | first argument                           | same as above                       |
+| `plugins-dir`    | Nuxt plugins directory     | `plugins`                                |                                     |
+| `plugin-name`    | Name for generated plugin  | `api`                                    |                                     |
+| `inject`         | Nuxt plugin inject key     | `{plugin-name}`                          |                                     |
+| `type-path`      | Path for scheme type file  | `{plugins-dir}/{plugin-name}/{types.ts}` | `./types/swagger.d.ts`              |
+| `base-path`      | base path                  | `/v1`                                    | `/v2`                               |
+| `skip-header`    | Ignore parameter in header | `false`                                  | `true`                              |
+| `form`           | Path param interface mode  | (undefined)                              | `underscore`                        |
 
 ### Set options using `package.json`
 ```json
 {
-  "scripts": {
-    "swagger": "nuxtswagger"
-  },
   "nuxtswagger": {
     "pluginName": "foo",
     "src": "https://api.server.foo/swagger.json"
@@ -90,7 +87,12 @@ nuxtswagger argument1 --option1 value1 --option2 value2
 
 ```js
 export default {
-  // support array
+  privateRuntimeConfig: {
+    nuxtswagger: [
+      { pluginName: 'foo', src: 'https://api.server.foo/swagger.json' },
+      { pluginName: 'bar', src: 'https://api.server.bar/swagger.json' },
+    ]
+  },
   publicRuntimeConfig: {
     nuxtswagger: {
       pluginName: 'foo',
