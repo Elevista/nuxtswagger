@@ -28,7 +28,7 @@
     "cross-fetch": "^3.0.6",
     "lodash": "^4.17.20",
     "mkdirp": "^1.0.4",
-    "tswagger": "^1.0.0-alpha.1",
+    "tswagger": "^1.0.0-alpha.4",
     "yargs": "^16.1.0"
   },
   "simple-git-hooks": {
@@ -43,19 +43,19 @@
   "main": "dist/index.js",
   "types": "types/index.d.ts",
   "devDependencies": {
-    "@nuxt/types": "^2.14.7",
-    "@nuxtjs/axios": "^5.13.6",
-    "@nuxtjs/eslint-config-typescript": "^7.0.2",
+    "@nuxtjs/eslint-config-typescript": "^12.0.0",
     "@types/lodash": "^4.14.168",
     "@types/mkdirp": "^1.0.2",
-    "@types/node": "^14.14.7",
+    "@types/node": "^14.18.36",
     "@types/yargs": "^15.0.9",
     "@typescript-eslint/eslint-plugin": "^5.2.0",
     "@typescript-eslint/parser": "^5.2.0",
+    "axios": "^1.3.4",
     "eslint": "^8.1.0",
     "eslint-formatter-friendly": "^7.0.0",
     "eslint-plugin-nuxt": "^3.0.0",
-    "nuxt": "^2.2.0",
+    "jiti": "^1.17.1",
+    "nuxt": "^3.2.2",
     "simple-git-hooks": "^2.6.1",
     "ts-node": "^10.2.1",
     "typescript": "^4.4.4"

@@ -4,6 +4,7 @@
     "moduleResolution": "node",
     "target": "ES2019",
     "allowJs": true,
+    "skipLibCheck": true,
     "outDir": "dist/",
     "esModuleInterop": true,
     "declaration": true,
@@ -11,9 +12,9 @@
     "sourceMap": false,
     "lib": ["ESNext", "dom"],
     "types": [
+      "node",
       "@types/node",
-      "@types/mkdirp",
-      "@nuxtjs/axios"
+      "@types/mkdirp"
     ],
     "strict": true
   },
