@@ -1,4 +1,4 @@
-import { AxiosRequestConfig } from 'axios'
+import { AxiosStatic } from 'axios'
 
 export interface NuxTSwaggerCliOptions {
   src: string
@@ -10,11 +10,12 @@ export interface NuxTSwaggerCliOptions {
   skipHeader: boolean
   form?: 'underscore'
 }
-export type NuxTSwaggerOptions = NuxTSwaggerCliOptions & { axiosConfig?: AxiosRequestConfig }
+type AxiosConfig = Required<Parameters<AxiosStatic['create']>>[0]
+export type NuxTSwaggerOptions = NuxTSwaggerCliOptions & { axiosConfig?: AxiosConfig }
 
 declare module '@nuxt/schema' {
   interface NuxtConfig {
-    nuxtswagger?: Partial<NuxTSwaggerOptions> | Partial<NuxTSwaggerOptions>[]
+    nuxtswagger?: Partial<NuxTSwaggerCliOptions> | Partial<NuxTSwaggerCliOptions>[]
   }
   interface PublicRuntimeConfig {
     nuxtswagger?: Partial<NuxTSwaggerOptions> | Partial<NuxTSwaggerOptions>[]
