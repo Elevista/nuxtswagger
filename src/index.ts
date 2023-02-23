@@ -12,8 +12,11 @@ export interface NuxTSwaggerCliOptions {
 }
 export type NuxTSwaggerOptions = NuxTSwaggerCliOptions & { axiosConfig?: AxiosRequestConfig }
 
-declare module '@nuxt/types/config/runtime' {
-  interface NuxtRuntimeConfig {
+declare module '@nuxt/schema' {
+  interface NuxtConfig {
+    nuxtswagger?: Partial<NuxTSwaggerOptions> | Partial<NuxTSwaggerOptions>[]
+  }
+  interface PublicRuntimeConfig {
     nuxtswagger?: Partial<NuxTSwaggerOptions> | Partial<NuxTSwaggerOptions>[]
   }
 }

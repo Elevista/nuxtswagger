@@ -4,8 +4,9 @@ import fs from 'fs'
 import _ from 'lodash'
 import * as mkdirp from 'mkdirp'
 import c from 'chalk'
-import { NuxtConfig } from '@nuxt/types'
 import { fetchSpec, notNullish } from 'tswagger'
+import jiti from 'jiti'
+import { NuxtConfig } from '@nuxt/schema'
 import { V2, V3 } from './TemplateNuxt'
 import { NuxTSwaggerCliOptions as CliOptions, NuxTSwaggerOptions as Options } from './index'
 const yargs = require('yargs/yargs')
@@ -16,7 +17,7 @@ interface Argv extends Partial<CliOptions> { _: [string?] }
 const argvToOptions = ({ _: [$1], src = $1, ...rest }: Argv): Partial<CliOptions> => ({ src, ...rest })
 const defaultOptions = ({
   src = '',
-  pluginsDir = 'plugins',
+  pluginsDir = 'lib',
   pluginName = 'api',
   inject = pluginName,
   typePath = path.join(pluginsDir, pluginName, 'types.ts'),
@@ -26,20 +27,23 @@ const defaultOptions = ({
   axiosConfig,
 }: Partial<Options> = {}): Options => ({ src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader, form, axiosConfig })
 
-const loadNuxtConfig = async () => {
+const loadNuxtConfig = () => {
   try {
-    return await require('nuxt').loadNuxtConfig() as NuxtConfig
+    (globalThis as any).defineNuxtConfig = (c: any) => c
+    const nuxtConfig: NuxtConfig = jiti(process.cwd(), { interopDefault: true, esmResolve: true })('./nuxt.config')
+    delete (globalThis as any).defineNuxtConfig
+    return Promise.resolve(nuxtConfig)
   } catch (e) {
-    return undefined
+    return Promise.resolve(undefined)
   }
 }
 const optionsFromNuxtConfig = () => loadNuxtConfig().then(config => {
-  let { publicRuntimeConfig, privateRuntimeConfig } = config || {}
-  const keyBy = (options?: Partial<Options> | Partial<Options>[]) => _.keyBy([options].filter(notNullish).flat(), x => x.pluginName)
-  if (typeof publicRuntimeConfig === 'function') publicRuntimeConfig = publicRuntimeConfig(process.env)
-  if (typeof privateRuntimeConfig === 'function') privateRuntimeConfig = privateRuntimeConfig(process.env)
-  const publicConfigs = keyBy(publicRuntimeConfig?.nuxtswagger)
-  const privateConfigs = keyBy(privateRuntimeConfig?.nuxtswagger)
+  type NuxTSwaggerConfig = Partial<Options> | Partial<Options>[]
+  const privateConfig = config?.nuxtswagger
+  const publicConfig: NuxTSwaggerConfig | undefined = (config?.runtimeConfig?.public as any)?.nuxtswagger
+  const keyBy = (options?: NuxTSwaggerConfig) => _.keyBy([options].filter(notNullish).flat(), x => x.pluginName)
+  const publicConfigs = keyBy(publicConfig)
+  const privateConfigs = keyBy(privateConfig)
   const names = _.uniq([Object.keys(publicConfigs), Object.keys(privateConfigs)].flat())
   return names.map(name => _.merge({}, publicConfigs[name], privateConfigs[name])) as Partial<Options>[]
 })
@@ -95,8 +99,9 @@ const run = async function () {
     const { pluginName } = defaultOptions()
     partialOptions = partialOptions.filter(x => (x.pluginName || pluginName) === (cliOption.pluginName || pluginName))
   }
-  const options = _.uniqBy(partialOptions.map(option => defaultOptions(_.defaults({}, cliOption, option, jsonOption)))
+  let options = _.uniqBy(partialOptions.map(option => defaultOptions(_.defaults({}, cliOption, option, jsonOption)))
     , x => x.pluginName)
+  if (options.filter(x => x.src).length) options = options.filter(x => x.src)
   for (const option of options) await generate(option)
 }
 run()
