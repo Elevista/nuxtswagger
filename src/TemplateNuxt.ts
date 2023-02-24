@@ -7,7 +7,7 @@ interface NuxtTemplate extends TemplateCommon {
 }
 
 function pluginTemplate (this: NuxtTemplate, { object }: { object: string }) {
-  const { importTypes, multipart, noInspect, options: { pluginName }, hasAxiosConfig } = this
+  const { importTypes, multipart, noInspect, options: { pluginName }, hasAxiosConfig, exportCode } = this
   const axiosConfig = hasAxiosConfig ? `[useRuntimeConfig().public.nuxtswagger].flat().find(x => x?.pluginName === '${pluginName}')?.axiosConfig || {}` : '{}'
   return `
 ${noInspect}
@@ -17,10 +17,7 @@ export interface $customExtendResponse {}
 type $R<T> = Promise<T> & { readonly response: Promise<AxiosResponse<T> & $customExtendResponse> }
 export const $axiosConfig: Required<Parameters<AxiosStatic['create']>>[0] = ${axiosConfig}
 const $ep = (_: any) => (${object})
-${this.exportFormat('')}($axios = Axios.create($axiosConfig)) => $ep((method: string, ...args: any) => {
-  const promise = ($axios as any)[method](...args)
-  return Object.defineProperty(promise.then((x: any) => x.data), 'response', {value: promise})
-})
+${exportCode}
 ${multipart}
 `.trimStart()
 }
