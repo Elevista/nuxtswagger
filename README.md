@@ -18,23 +18,10 @@ in Nuxt project directory
 ```sh
 npx nuxtswagger https://api.server.foo/swagger.json
 ```
-in `nuxt.config.js`
+in script code
 ```js
-module.exports = {
-  plugins: [
-    '~/plugins/api'
-  ]
-}
-```
-in component
-```js
-export default {
-  async asyncData ({ $api }) {
-    return { foo: await $api.foo.get() }
-  },
-  data () { return { bar: undefined } },
-  async mounted () { this.bar = await this.$api.bar.get() }
-}
+import { api } from '~/lib/api'
+await api().foo.post()
 ```
 
 ### Path param mode
@@ -43,12 +30,12 @@ export default {
 
 ```js
 /* default (1.1.0+) */
-$api.foo.bar(1).get(2)
-$api.foo.bar.get()
+api().foo.bar(1).get(2)
+api().foo.bar.get()
 
 /* underscore */
-$api.foo._bar.get(1, 2)
-$api.foo.bar.get()
+api().foo._bar.get(1, 2)
+api().foo.bar.get()
 ```
 
 ## Options
@@ -86,21 +73,21 @@ nuxtswagger argument1 --option1 value1 --option2 value2
 *v1.2+*
 
 ```js
-export default {
-  privateRuntimeConfig: {
-    nuxtswagger: [
-      { pluginName: 'foo', src: 'https://api.server.foo/swagger.json' },
-      { pluginName: 'bar', src: 'https://api.server.bar/swagger.json' },
-    ]
+export default defineNuxtConfig({
+  nuxtswagger: [
+    { pluginName: 'foo', src: 'https://api.server.foo/swagger.json' },
+    { pluginName: 'bar', src: 'https://api.server.bar/swagger.json' },
+  ],
+  runtimeConfig: {
+    public: {
+      nuxtswagger: {
+        pluginName: 'foo',
+        // AxiosRequestConfig?
+        axiosConfig: { baseURL: 'https://api-stage.server.foo' }
+      },
+    },
   },
-  publicRuntimeConfig: {
-    nuxtswagger: {
-      pluginName: 'foo',
-      // AxiosRequestConfig?
-      axiosConfig: { baseURL: 'https://api-stage.server.foo' }
-    }
-  }
-}
+})
 ```
 
 #### `tsconfig.json`
