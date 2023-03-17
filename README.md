@@ -10,8 +10,7 @@ npm i -D nuxtswagger
 ```
 
 ## Requirements
-- [`Nuxt`](https://nuxtjs.org) base project
-- [`@nuxtjs/axios`](https://axios.nuxtjs.org) module
+- [`Nuxt`](https://nuxt.com) base project
 
 ## Basic Usage
 in Nuxt project directory
