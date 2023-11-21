@@ -11,10 +11,14 @@ function pluginTemplate (this: NuxtTemplate, { object }: { object: string }) {
   const axiosConfig = hasAxiosConfig ? `[useRuntimeConfig().public.nuxtswagger].flat().find(x => x?.pluginName === '${pluginName}')?.axiosConfig || {}` : '{}'
   return `
 ${noInspect}
-import Axios, { AxiosStatic, AxiosRequestConfig, AxiosResponse } from 'axios'
+import Axios, { AxiosStatic, AxiosRequestConfig, AxiosResponse, AxiosError } from 'axios'
 ${importTypes}
 export interface $customExtendResponse {}
-type $R<T> = Promise<T> & { readonly response: Promise<AxiosResponse<T> & $customExtendResponse> }
+interface PromiseEt<T, E> extends Promise<T> {
+  then<R1 = T, R2 = never>(onfulfilled?: ((value: T) => R1 | PromiseLike<R1>) | undefined | null, onrejected?: ((reason: E) => R2 | PromiseLike<R2>) | undefined | null): Promise<R1 | R2>;
+  catch<R1 = never>(onrejected?: ((reason: E) => R1 | PromiseLike<R1>) | undefined | null): Promise<T | R1>;
+}
+type $R<T, E> = PromiseEt<T, E> & { readonly response: PromiseEt<AxiosResponse<T> & $customExtendResponse, AxiosError<E>> }
 export const $axiosConfig: Required<Parameters<AxiosStatic['create']>>[0] = ${axiosConfig}
 const $ep = (_: any) => (${object})
 ${exportCode}
