@@ -8,14 +8,8 @@
     "outDir": "dist/",
     "esModuleInterop": true,
     "declaration": true,
-    "declarationDir": "./types",
     "sourceMap": false,
     "lib": ["ESNext", "dom"],
-    "types": [
-      "node",
-      "@types/node",
-      "@types/mkdirp"
-    ],
     "strict": true
   },
   "include": ["src/*"],

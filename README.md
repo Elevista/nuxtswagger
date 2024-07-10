@@ -1,23 +1,30 @@
 # NuxTSwagger
+
 Nuxt-TS-Swagger plugin generator CLI
 
 [![npm package](https://img.shields.io/npm/v/nuxtswagger.svg?maxAge=2592000&style=flat-square)](https://www.npmjs.com/package/nuxtswagger)
 [![github stars](https://img.shields.io/github/stars/Elevista/nuxtswagger?style=social)](https://github.com/Elevista/nuxtswagger)
 
 ## Installation
+
 ```sh
 npm i -D nuxtswagger
 ```
 
 ## Requirements
+
 - [`Nuxt`](https://nuxt.com) base project
 
 ## Basic Usage
+
 in Nuxt project directory
+
 ```sh
 npx nuxtswagger https://api.server.foo/swagger.json
 ```
+
 in script code
+
 ```js
 import { api } from '~/lib/api'
 await api().foo.post()
@@ -51,13 +58,14 @@ nuxtswagger argument1 --option1 value1 --option2 value2
 | `src`            | same as first argument     | first argument                           | same as above                       |
 | `plugins-dir`    | Nuxt plugins directory     | `plugins`                                |                                     |
 | `plugin-name`    | Name for generated plugin  | `api`                                    |                                     |
-| `inject`         | Nuxt plugin inject key     | `{plugin-name}`                          |                                     |
+| `export-name`    | Export name                | `''`(export default)                     | `api`                               |
 | `type-path`      | Path for scheme type file  | `{plugins-dir}/{plugin-name}/{types.ts}` | `./types/swagger.d.ts`              |
 | `base-path`      | base path                  | `/v1`                                    | `/v2`                               |
 | `skip-header`    | Ignore parameter in header | `false`                                  | `true`                              |
 | `form`           | Path param interface mode  | (undefined)                              | `underscore`                        |
 
 ### Set options using `package.json`
+
 ```json
 {
   "nuxtswagger": {
@@ -99,11 +107,9 @@ export default defineNuxtConfig({
 }
 ```
 
-
-
 and `npm run swagger` or `npx nuxtswagger`
 
-
 ## License
+
 ISC License
 Copyright (c) 2020, Elevista

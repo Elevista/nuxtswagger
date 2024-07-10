@@ -4,10 +4,12 @@ import fs from 'fs'
 import _ from 'lodash'
 import * as mkdirp from 'mkdirp'
 import c from 'chalk'
-import { fetchSpec, notNullish } from 'tswagger'
 import jiti from 'jiti'
 import { NuxtConfig } from '@nuxt/schema'
-import { V2, V3 } from './TemplateNuxt'
+import { notNullish } from 'tswagger/dist/utils'
+import { genTypeFile } from 'tswagger'
+import fetchSpec from 'tswagger/dist/fetchSpec'
+import { genAxiosCode } from './axios'
 import { NuxTSwaggerCliOptions as CliOptions, NuxTSwaggerOptions as Options } from './index'
 const yargs = require('yargs/yargs')
 const { hideBin } = require('yargs/helpers')
@@ -19,13 +21,13 @@ const defaultOptions = ({
   src = '',
   pluginsDir = 'lib',
   pluginName = 'api',
-  inject = pluginName,
+  exportName = '',
   typePath = path.join(pluginsDir, pluginName, 'types.ts'),
   basePath = '/v1',
   skipHeader = false,
   form,
   axiosConfig,
-}: Partial<Options> = {}): Options => ({ src, pluginsDir, pluginName, inject, typePath, basePath, skipHeader, form, axiosConfig })
+}: Partial<Options> = {}): Options => ({ src, pluginsDir, pluginName, exportName, typePath, basePath, skipHeader, form, axiosConfig })
 
 const loadNuxtConfig = () => {
   try {
@@ -70,22 +72,18 @@ const makeDirs = ({ pluginsDir, typePath }: CliOptions) => {
   mkdirp.sync(path.dirname(typePath))
 }
 
-const generate = async (options: CliOptions) => {
+const generate = async (options: Options) => {
   if (!options.src) throw new Error('No JSON path provided')
   const spec = await fetchSpec(options.src)
   makeDirs(options)
 
   const { pluginPath, relTypePath } = pluginRelTypePath(options)
-  let template
-  const templateOptions = { ...options, relTypePath }
-  if (('swagger' in spec) && spec.swagger === '2.0') template = new V2(spec, templateOptions)
-  if (('openapi' in spec) && parseInt(spec.openapi) === 3) template = new V3(spec, templateOptions)
+  const schemas = ('openapi' in spec ? spec.components?.schemas : 'swagger' in spec ? spec.definitions : {}) || {}
 
-  if (!template) throw new Error('not support')
-  console.log(c.green(' ✔ create  '), pluginPath)
-  fs.writeFileSync(pluginPath, template.plugin())
+  fs.writeFileSync(options.typePath, genTypeFile(schemas))
   console.log(c.blue(' ✔ create  '), options.typePath)
-  fs.writeFileSync(options.typePath, template.definitions())
+  fs.writeFileSync(pluginPath, genAxiosCode(spec.paths, relTypePath, schemas, options))
+  console.log(c.green(' ✔ create  '), pluginPath)
 }
 
 const run = async function () {

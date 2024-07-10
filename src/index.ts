@@ -4,13 +4,13 @@ export interface NuxTSwaggerCliOptions {
   src: string
   pluginsDir: string
   pluginName: string
-  inject: string
+  exportName: string
   typePath: string
   basePath: string
   skipHeader: boolean
   form?: 'underscore'
 }
-type AxiosConfig = Required<Parameters<AxiosStatic['create']>>[0]
+export type AxiosConfig = Required<Parameters<AxiosStatic['create']>>[0]
 export type NuxTSwaggerOptions = NuxTSwaggerCliOptions & { axiosConfig?: AxiosConfig }
 
 declare module '@nuxt/schema' {
