@@ -12,12 +12,12 @@ export const genAxiosCode = (paths: Paths, relTypePath: string, components: Reco
   const { pluginName, exportName } = options
   const obj = traversePaths(paths, generateApiMethods)
   const refTypes = Object.keys(components).map(toValidName).filter(x => variableBoundary(x).test(obj))
-  const axiosConfig = options.axiosConfig ? `[useRuntimeConfig().public.nuxtswagger].flat().find(x => x?.pluginName === '${pluginName}')?.axiosConfig || {}` : '{}'
+  const axiosConfig = options.axiosConfig && `[useRuntimeConfig().public.nuxtswagger].flat().find(x => x?.pluginName === '${pluginName}')?.axiosConfig || {}`
   return `/* eslint-disable */
 import Axios, { AxiosStatic, AxiosResponse, AxiosError } from 'axios'
 import { ${refTypes.join(', ')} } from '${relTypePath}'
 ${promiseWrapper}
-export const $axiosConfig: Required<Parameters<AxiosStatic['create']>>[0] = ${axiosConfig}
+export const $axiosConfig: Required<Parameters<AxiosStatic['create']>>[0] = ${axiosConfig || '{}'}
 ${exportCode(exportName, obj)}
 ${variableBoundary(multipart).test(obj) ? multipartCode : ''}
 `
