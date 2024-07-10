@@ -2,6 +2,7 @@
   "name": "nuxtswagger",
   "version": "3.0.0",
   "description": "Nuxt-TS-Swagger plugin generator CLI",
+  "node": ">=18.0.0",
   "bin": {
     "nuxtswagger": "dist/cli.js"
   },
@@ -28,7 +29,7 @@
     "cross-fetch": "^3.0.6",
     "lodash": "^4.17.20",
     "mkdirp": "^1.0.4",
-    "tswagger": "^1.0.0",
+    "tswagger": "^1.1.0-2",
     "yargs": "^16.1.0"
   },
   "simple-git-hooks": {
@@ -47,7 +48,7 @@
     "@nuxtjs/eslint-config-typescript": "^12.0.0",
     "@types/lodash": "^4.14.168",
     "@types/mkdirp": "^1.0.2",
-    "@types/node": "^14.18.36",
+    "@types/node": "^18.19.39",
     "@types/yargs": "^15.0.9",
     "@typescript-eslint/eslint-plugin": "^5.2.0",
     "@typescript-eslint/parser": "^5.2.0",
@@ -58,8 +59,8 @@
     "jiti": "^1.17.1",
     "nuxt": "^3.2.2",
     "simple-git-hooks": "^2.6.1",
-    "ts-node": "^10.2.1",
-    "typescript": "^4.4.4"
+    "ts-node": "^10.9.2",
+    "typescript": "^5.5.3"
   },
   "repository": {
     "type": "git",
