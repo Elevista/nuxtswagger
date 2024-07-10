@@ -24,10 +24,8 @@ const defaultOptions = ({
   exportName = '',
   typePath = path.join(pluginsDir, pluginName, 'types.ts'),
   basePath = '/v1',
-  skipHeader = false,
-  form,
   axiosConfig,
-}: Partial<Options> = {}): Options => ({ src, pluginsDir, pluginName, exportName, typePath, basePath, skipHeader, form, axiosConfig })
+}: Partial<Options> = {}): Options => ({ src, pluginsDir, pluginName, exportName, typePath, basePath, axiosConfig })
 
 const loadNuxtConfig = () => {
   try {

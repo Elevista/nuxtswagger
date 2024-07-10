@@ -7,8 +7,6 @@ export interface NuxTSwaggerCliOptions {
   exportName: string
   typePath: string
   basePath: string
-  skipHeader: boolean
-  form?: 'underscore'
 }
 export type AxiosConfig = Required<Parameters<AxiosStatic['create']>>[0]
 export type NuxTSwaggerOptions = NuxTSwaggerCliOptions & { axiosConfig?: AxiosConfig }

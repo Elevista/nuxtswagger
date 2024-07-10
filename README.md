@@ -27,21 +27,8 @@ in script code
 
 ```js
 import { api } from '~/lib/api'
-await api().foo.post()
-```
-
-### Path param mode
-
-*see `form` option*
-
-```js
-/* default (1.1.0+) */
-api().foo.bar(1).get(2)
-api().foo.bar.get()
-
-/* underscore */
-api().foo._bar.get(1, 2)
-api().foo.bar.get()
+const response = await api.foo.bar(1).post(requestBody) // Post /foo/{bar} 
+api.foo.bar.get() // GET /foo/bar
 ```
 
 ## Options
@@ -60,9 +47,6 @@ nuxtswagger argument1 --option1 value1 --option2 value2
 | `plugin-name`    | Name for generated plugin  | `api`                                    |                                     |
 | `export-name`    | Export name                | `''`(export default)                     | `api`                               |
 | `type-path`      | Path for scheme type file  | `{plugins-dir}/{plugin-name}/{types.ts}` | `./types/swagger.d.ts`              |
-| `base-path`      | base path                  | `/v1`                                    | `/v2`                               |
-| `skip-header`    | Ignore parameter in header | `false`                                  | `true`                              |
-| `form`           | Path param interface mode  | (undefined)                              | `underscore`                        |
 
 ### Set options using `package.json`
 
