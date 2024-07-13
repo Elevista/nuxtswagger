@@ -2,9 +2,9 @@ import { toValidName, traversePaths, variableBoundary } from 'tswagger'
 import { Schema } from 'tswagger/dist/spec/schema'
 import { Paths as PathV2 } from 'tswagger/dist/spec/v2'
 import { Paths as PathV3 } from 'tswagger/dist/spec/v3'
-import { multipart, multipartCode } from 'tswagger/dist/template'
-import { generateApiMethods } from 'tswagger/dist/axios'
-import { promiseWrapper, exportCode } from 'tswagger/dist/axiosTemplate'
+import { multipart, multipartCode } from 'tswagger/dist/gen/template'
+import { generateApiMethods } from 'tswagger/dist/gen/axios'
+import { promiseWrapper, exportCode } from 'tswagger/dist/gen/axiosTemplate'
 import { AxiosConfig } from '.'
 type Paths = PathV2 | PathV3
 
