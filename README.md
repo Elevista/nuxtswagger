@@ -45,7 +45,7 @@ nuxtswagger argument1 --option1 value1 --option2 value2
 | `src`            | same as first argument     | first argument                           | same as above                       |
 | `plugins-dir`    | Nuxt plugins directory     | `plugins`                                |                                     |
 | `plugin-name`    | Name for generated plugin  | `api`                                    |                                     |
-| `export-name`    | Export name                | `''`(export default)                     | `api`                               |
+| `export-name`    | Export name                | `{plugin-name}`                          | `''`(export default)                |
 | `type-path`      | Path for scheme type file  | `{plugins-dir}/{plugin-name}/{types.ts}` | `./types/swagger.d.ts`              |
 
 ### Set options using `package.json`

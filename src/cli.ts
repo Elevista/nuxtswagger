@@ -21,7 +21,7 @@ const defaultOptions = ({
   src = '',
   pluginsDir = 'lib',
   pluginName = 'api',
-  exportName = '',
+  exportName = pluginName,
   typePath = path.join(pluginsDir, pluginName, 'types.ts'),
   basePath = '/v1',
   axiosConfig,
