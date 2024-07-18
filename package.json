@@ -29,7 +29,7 @@
     "cross-fetch": "^3.0.6",
     "lodash": "^4.17.20",
     "mkdirp": "^1.0.4",
-    "tswagger": "^1.1.0-5",
+    "tswagger": "^1.1.0-6",
     "yargs": "^16.1.0"
   },
   "simple-git-hooks": {
